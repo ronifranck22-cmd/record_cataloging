@@ -61,6 +61,7 @@ st.markdown(
         border-radius: 12px;
         padding: 1rem 1.6rem;
         min-width: 140px;
+        flex: 1 1 200px;
         text-align: center;
     }
     .stat-card .num {
@@ -88,6 +89,36 @@ st.markdown(
     section[data-testid="stSidebar"] {
         direction: rtl;
         text-align: right;
+    }
+
+    /* --- MOBILE RESPONSIVENESS --- */
+    @media (max-width: 768px) {
+        .main-header h1 {
+            font-size: 1.8rem;
+        }
+        .main-header p {
+            font-size: 0.9rem;
+        }
+        
+        /* Stack the stat cards nicely on mobile */
+        .stat-row {
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+        .stat-card {
+            min-width: 100%;
+            padding: 1rem;
+        }
+        .stat-card .num {
+            font-size: 1.6rem;
+        }
+        
+        /* Adjust native Streamlit spacing for mobile screens */
+        .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+            padding-top: 2rem !important;
+        }
     }
     </style>
     """,
