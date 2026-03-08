@@ -95,6 +95,35 @@ st.markdown(
 )
 
 # ---------------------------------------------------------------------------
+# Password Authentication
+# ---------------------------------------------------------------------------
+
+def check_password():
+    """Returns `True` if the user had the correct password."""
+    def password_entered():
+        # Get password from st.secrets
+        # We use a default here just in case it's not set up yet, but you should change it!
+        correct_password = st.secrets.get("app_password")
+        
+        if st.session_state["password"] == correct_password:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # don't store password in session
+        else:
+            st.session_state["password_correct"] = False
+
+    if "password_correct" not in st.session_state:
+        st.text_input("נא להזין סיסמת גישה", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("נא להזין סיסמת גישה", type="password", on_change=password_entered, key="password")
+        st.error("סיסמה שגויה")
+        return False
+    return True
+
+if not check_password():
+    st.stop()
+
+# ---------------------------------------------------------------------------
 # Firebase connection (cached)
 # ---------------------------------------------------------------------------
 
