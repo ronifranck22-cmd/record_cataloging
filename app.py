@@ -196,7 +196,7 @@ df = st.session_state["df"]
 # ---------------------------------------------------------------------------
 
 total_records = len(df)
-total_boxes = df["box_number"].nunique() if not df.empty else 0
+total_boxes = df["box"].nunique() if not df.empty else 0
 total_value = int(df["estimated_price_ils"].sum()) if not df.empty else 0
 
 with st.sidebar:
@@ -232,7 +232,7 @@ with st.sidebar:
     artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
     selected_artists = st.multiselect("סנן לפי אמן", artists)
 
-    boxes = sorted(df["box_number"].dropna().unique()) if not df.empty else []
+    boxes = sorted(df["box"].dropna().unique()) if not df.empty else []
     selected_boxes = st.multiselect("סנן לפי מספר קופסה", [int(b) for b in boxes])
 
     st.subheader("מיון")
@@ -241,7 +241,7 @@ with st.sidebar:
     sort_options = {
         "אמן": "artist",
         "שם התקליט": "name",
-        "מספר קופסה": "box_number",
+        "מספר קופסה": "box",
         "מחיר משוער": "estimated_price_ils",
         "גרסה": "version"
     }
@@ -274,7 +274,7 @@ if selected_artists:
     filtered = filtered[filtered["artist"].isin(selected_artists)]
 
 if selected_boxes:
-    filtered = filtered[filtered["box_number"].isin(selected_boxes)]
+    filtered = filtered[filtered["box"].isin(selected_boxes)]
 
 # Apply sorting
 filtered = filtered.sort_values(by=sort_col, ascending=sort_asc, ignore_index=True)
@@ -309,7 +309,7 @@ with col1:
                     st.error("אנא מלא את שדות החובה (אמן ושם התקליט).")
                 else:
                     record_store.add(db, {
-                        "box_number": int(new_box),
+                        "box": int(new_box),
                         "artist": new_artist.strip(),
                         "name": new_name.strip(),
                         "version": new_version.strip(),
@@ -323,7 +323,7 @@ with col2:
     if not filtered.empty:
         with st.expander("🗑️ מחיקת תקליט"):
             delete_options = {
-                f"{row['artist']} — {row['name']} (קופסה {row['box_number']})": row["id"]
+                f"{row['artist']} — {row['name']} (קופסה {row['box']})": row["id"]
                 for _, row in filtered.iterrows()
             }
             selected_delete = st.selectbox("בחר תקליט למחיקה", list(delete_options.keys()))
@@ -344,7 +344,7 @@ if filtered.empty:
 else:
     display_df = filtered.drop(columns=["id"])
     column_config = {
-        "box_number": st.column_config.NumberColumn("קופסה", min_value=1, step=1),
+        "box": st.column_config.NumberColumn("קופסה", min_value=1, step=1),
         "artist": st.column_config.TextColumn("אמן"),
         "name": st.column_config.TextColumn("שם התקליט"),
         "version": st.column_config.TextColumn("גרסה"),
@@ -373,7 +373,7 @@ else:
                     doc_id = filtered.loc[idx, "id"]
                     changes = edited_row.to_dict()
                     # Ensure correct types
-                    changes["box_number"] = int(changes["box_number"])
+                    changes["box"] = int(changes["box"])
                     changes["estimated_price_ils"] = int(changes["estimated_price_ils"])
                     record_store.update(db, doc_id, changes)
             st.success("✅ השינויים נשמרו!")
