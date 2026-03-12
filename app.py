@@ -27,15 +27,33 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
 
-    /* Global RTL on app container shifts the sidebar to the right natively */
-    [class*="stApp"] {
-        direction: rtl;
+    /* Global Font */
+    body {
         font-family: 'Rubik', sans-serif;
     }
 
-    /* Safe RTL targeting for internal elements */
+    /* RTL Layout Fix for Streamlit Sidebar without breaking Mobile Collapse */
     .block-container, [data-testid="stSidebarContent"], [data-testid="stHeader"] {
         direction: rtl;
+    }
+    
+    /* Move sidebar to the right natively */
+    [data-testid="stSidebar"] {
+        right: 0 !important;
+        left: auto !important;
+        transform: none !important; /* Prevents center-stretching on mobile when closed */
+    }
+    
+    /* Hide sidebar when closed via native Streamlit aria attributes */
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        right: -100% !important;
+        transform: translateX(100%) !important;
+    }
+    
+    /* Move sidebar collapse button to the right */
+    [data-testid="collapsedControl"] {
+        right: 1rem !important;
+        left: auto !important;
     }
 
     /* Header */
