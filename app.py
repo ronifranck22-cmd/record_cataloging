@@ -197,7 +197,17 @@ df = st.session_state["df"]
 
 total_records = len(df)
 total_boxes = df["box"].nunique() if not df.empty else 0
-total_value = int(df["estimated_price_ils"].sum()) if not df.empty else 0
+
+# Calculate total value ignoring string tags
+total_value = 0
+if not df.empty and "tag" in df.columns:
+    prices_list = df["tag"].tolist()
+    for item in prices_list:
+        try:
+            val = int(str(item))
+            total_value = total_value + val
+        except (ValueError, TypeError):
+            pass
 
 with st.sidebar:
     st.header("� נתונים כלליים")
@@ -242,7 +252,7 @@ with st.sidebar:
         "אמן": "artist",
         "שם התקליט": "name",
         "מספר קופסה": "box",
-        "מחיר משוער": "estimated_price_ils",
+        "תגית (מחיר/טקסט)": "tag",
         "גרסה": "version"
     }
     
@@ -301,7 +311,7 @@ with col1:
             new_name = st.text_input("שם התקליט *")
             new_version = st.text_input("גרסה", value="אלבום")
             new_box = st.number_input("מספר קופסה *", min_value=1, step=1, value=1)
-            new_price = st.number_input("מחיר משוער (₪)", min_value=0, step=10, value=0)
+            new_tag = st.text_input("תגית (מחיר/טקסט)", value="0")
 
             submitted = st.form_submit_button("הוסף תקליט", type="primary", use_container_width=True)
             if submitted:
@@ -313,7 +323,7 @@ with col1:
                         "artist": new_artist.strip(),
                         "name": new_name.strip(),
                         "version": new_version.strip(),
-                        "estimated_price_ils": int(new_price),
+                        "tag": new_tag.strip(),
                     })
                     st.success(f"✅ התקליט '{new_name}' נוסף בהצלחה!")
                     refresh()
@@ -348,7 +358,7 @@ else:
         "artist": st.column_config.TextColumn("אמן"),
         "name": st.column_config.TextColumn("שם התקליט"),
         "version": st.column_config.TextColumn("גרסה"),
-        "estimated_price_ils": st.column_config.NumberColumn("מחיר משוער (₪)", min_value=0, step=10),
+        "tag": st.column_config.TextColumn("תגית (מחיר/טקסט)"),
     }
     
     # We use a dynamic format for the key. If the user changes sort order or search, the table key changes.
@@ -374,7 +384,6 @@ else:
                     changes = edited_row.to_dict()
                     # Ensure correct types
                     changes["box"] = int(changes["box"])
-                    changes["estimated_price_ils"] = int(changes["estimated_price_ils"])
                     record_store.update(db, doc_id, changes)
             st.success("✅ השינויים נשמרו!")
             refresh()
