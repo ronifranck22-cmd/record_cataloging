@@ -27,10 +27,14 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
 
-    /* Global RTL */
-    html, body, [class*="stApp"] {
-        direction: rtl;
+    /* Global Font */
+    body {
         font-family: 'Rubik', sans-serif;
+    }
+
+    /* Safe RTL targeting to prevent Sidebar transform bugs */
+    .block-container, [data-testid="stSidebarContent"], [data-testid="stHeader"] {
+        direction: rtl;
     }
 
     /* Header */
@@ -307,8 +311,8 @@ filtered = filtered.sort_values(by=sort_col, ascending=sort_asc, ignore_index=Tr
 
 st.markdown(
     '<div class="main-header">'
-    "<h1>🎵 אוסף התקליטים</h1>"
-    "<p>ניהול וצפייה באוסף התקליטים המשפחתי</p>"
+    "<h1>🎵אוסף התקליטים</h1>🎵"
+    "<p>ניהול וצפייה באוסף התקליטים של ירון</p>"
     "</div>",
     unsafe_allow_html=True,
 )
