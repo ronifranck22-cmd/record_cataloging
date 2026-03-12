@@ -18,6 +18,7 @@ st.set_page_config(
     page_title="אוסף התקליטים",
     page_icon="🎵",
     layout="wide",
+    initial_sidebar_state="collapsed",
 )
 
 # RTL + custom styling
@@ -121,9 +122,30 @@ st.markdown(
         
         /* Adjust native Streamlit spacing for mobile screens */
         .block-container {
-            padding-left: 1rem !important;
-            padding-right: 1rem !important;
-            padding-top: 1.5rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            padding-top: 1rem !important;
+            max-width: 100vw !important;
+            overflow-x: hidden !important;
+        }
+
+        /* Force Data Editor Table to restrict its width and handle its own scrollbar */
+        div[data-testid="stDataEditor"] {
+            width: 100% !important;
+            max-width: 100vw !important;
+        }
+
+        /* Force columns to stack vertically on all devices under 768px */
+        div[data-testid="column"] {
+            min-width: 100% !important;
+            width: 100% !important;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Stop headers and elements from breaking layout */
+        h1, h2, h3, h4, span, div {
+            max-width: 100vw;
+            box-sizing: border-box;
         }
     }
     </style>
@@ -197,17 +219,7 @@ df = st.session_state["df"]
 
 total_records = len(df)
 total_boxes = df["box"].nunique() if not df.empty else 0
-
-# Calculate total value ignoring string tags
-total_value = 0
-if not df.empty and "tag" in df.columns:
-    prices_list = df["tag"].tolist()
-    for item in prices_list:
-        try:
-            val = int(str(item))
-            total_value = total_value + val
-        except (ValueError, TypeError):
-            pass
+total_artists = df["artist"].nunique() if not df.empty else 0
 
 with st.sidebar:
     st.header("� נתונים כלליים")
@@ -225,8 +237,8 @@ with st.sidebar:
                 <div class="label">קופסאות</div>
             </div>
             <div class="sidebar-stat-card">
-                <div class="num">₪{total_value:,}</div>
-                <div class="label">שווי משוער</div>
+                <div class="num">{total_artists}</div>
+                <div class="label">אמנים שונים</div>
             </div>
         </div>
         """,
