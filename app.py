@@ -322,7 +322,10 @@ if selected_boxes:
     filtered = filtered[filtered["box"].isin(selected_boxes)]
 
 # Apply sorting
-filtered = filtered.sort_values(by=sort_col, ascending=sort_asc, ignore_index=True)
+if sort_col == "box":
+    filtered = filtered.sort_values(by=["box", "artist"], ascending=[sort_asc, True], ignore_index=True)
+else:
+    filtered = filtered.sort_values(by=sort_col, ascending=sort_asc, ignore_index=True)
 
 # ---------------------------------------------------------------------------
 # Header & Action Buttons (Main Page)
