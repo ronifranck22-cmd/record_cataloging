@@ -284,9 +284,9 @@ with st.sidebar:
     
     # Map friendly Hebrew names to actual columns to make sorting functional and responsive
     sort_options = {
+        "מספר קופסה": "box",
         "אמן": "artist",
         "שם התקליט": "name",
-        "מספר קופסה": "box",
         "תגית (מחיר/טקסט)": "tag",
         "גרסה": "version"
     }
