@@ -27,12 +27,13 @@ st.markdown(
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
 
-    /* Global Font */
-    body {
+    /* Global RTL on app container shifts the sidebar to the right natively */
+    [class*="stApp"] {
+        direction: rtl;
         font-family: 'Rubik', sans-serif;
     }
 
-    /* Safe RTL targeting to prevent Sidebar transform bugs */
+    /* Safe RTL targeting for internal elements */
     .block-container, [data-testid="stSidebarContent"], [data-testid="stHeader"] {
         direction: rtl;
     }
@@ -311,11 +312,25 @@ filtered = filtered.sort_values(by=sort_col, ascending=sort_asc, ignore_index=Tr
 
 st.markdown(
     '<div class="main-header">'
-    "<h1>🎵אוסף התקליטים</h1>🎵"
+    "<h1>🎵אוסף התקליטים🎵</h1>"
     "<p>ניהול וצפייה באוסף התקליטים של ירון</p>"
     "</div>",
     unsafe_allow_html=True,
 )
+
+@st.dialog("אישור מחיקה")
+def confirm_deletion(record_id, record_desc):
+    st.warning(f"האם אתה בטוח שברצונך למחוק את {record_desc}?")
+    col_y, col_n = st.columns(2)
+    with col_y:
+        if st.button("כן, מחק", type="primary", use_container_width=True):
+            record_store.delete(db, record_id)
+            st.success("✅ התקליט נמחק!")
+            refresh()
+            st.rerun()
+    with col_n:
+        if st.button("ביטול", use_container_width=True):
+            st.rerun()
 
 # Put Action Buttons directly under the main header
 col1, col2 = st.columns(2)
@@ -354,10 +369,7 @@ with col2:
             }
             selected_delete = st.selectbox("בחר תקליט למחיקה", list(delete_options.keys()))
             if st.button("מחק", type="secondary", use_container_width=True):
-                record_store.delete(db, delete_options[selected_delete])
-                st.success("✅ התקליט נמחק!")
-                refresh()
-                st.rerun()
+                confirm_deletion(delete_options[selected_delete], selected_delete)
 
 # ---------------------------------------------------------------------------
 # Editable table
