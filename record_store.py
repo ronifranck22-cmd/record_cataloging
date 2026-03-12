@@ -14,7 +14,7 @@ import pandas as pd
 
 COLLECTION = "records"
 
-FIELDS = ["box", "artist", "name", "version", "estimated_price_ils"]
+FIELDS = ["box", "artist", "name", "version", "tag"]
 
 
 # ---------------------------------------------------------------------------
