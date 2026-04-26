@@ -217,22 +217,38 @@ db = init_db()
 # State helpers
 # ---------------------------------------------------------------------------
 
-def load_records() -> pd.DataFrame:
-    """Fetch records from Firestore."""
-    return record_store.get_all(db)
+def load_page(page_num=0):
+    """Fetch paginated records from Firestore."""
+    if page_num == 0:
+        df, last_doc = record_store.get_page(db, limit=50)
+        st.session_state["df"] = df
+        st.session_state["last_docs"] = [last_doc]
+        st.session_state["current_page"] = 0
+    else:
+        prev_idx = page_num - 1
+        if prev_idx >= 0 and prev_idx < len(st.session_state["last_docs"]):
+             start_after_doc = st.session_state["last_docs"][prev_idx]
+        else:
+             start_after_doc = None
+             
+        df, last_doc = record_store.get_page(db, limit=50, start_after=start_after_doc)
+        st.session_state["df"] = df
+        
+        if len(st.session_state["last_docs"]) <= page_num:
+            st.session_state["last_docs"].append(last_doc)
+        else:
+            st.session_state["last_docs"][page_num] = last_doc
+        
+        st.session_state["current_page"] = page_num
 
 def refresh():
-    """Clear cached data so the next run re-fetches from Firestore."""
-    st.cache_data.clear()
-    if "df" in st.session_state:
-        del st.session_state["df"]
+    """Clear cached page data so the next run re-fetches."""
+    st.session_state["last_docs"] = []
+    load_page(0)
 
-# ---------------------------------------------------------------------------
-# Load data
-# ---------------------------------------------------------------------------
-
-if "df" not in st.session_state:
-    st.session_state["df"] = load_records()
+if "df" not in st.session_state or "current_page" not in st.session_state:
+    st.session_state["last_docs"] = []
+    load_page(0)
 
 df = st.session_state["df"]
 
@@ -245,23 +261,21 @@ total_boxes = df["box"].nunique() if not df.empty else 0
 total_artists = df["artist"].nunique() if not df.empty else 0
 
 with st.sidebar:
-    st.header("� נתונים כלליים")
-    
-    # Power Numbers in Sidebar
+    st.header("📋 נתונים לעמוד נוכחי")
     st.markdown(
         f"""
         <div class="sidebar-stats">
             <div class="sidebar-stat-card">
                 <div class="num">{total_records}</div>
-                <div class="label">תקליטים</div>
+                <div class="label">תקליטים מוצגים</div>
             </div>
             <div class="sidebar-stat-card">
                 <div class="num">{total_boxes}</div>
-                <div class="label">קופסאות</div>
+                <div class="label">קופסאות בשורות אלו</div>
             </div>
             <div class="sidebar-stat-card">
                 <div class="num">{total_artists}</div>
-                <div class="label">אמנים שונים</div>
+                <div class="label">אמנים בעמוד זה</div>
             </div>
         </div>
         """,
@@ -270,45 +284,29 @@ with st.sidebar:
 
     st.divider()
 
-    st.header("�🔍 סינון וחיפוש")
+    st.header("🔍 סינון בעמוד זה")
 
-    search_query = st.text_input("חיפוש אמן או שם אלבום", placeholder="הקלד טקסט לחיפוש...")
+    search_query = st.text_input("חיפוש אמן או שם אלבום", placeholder="הקלד טקסט לחיפוש בעמוד...")
 
     artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
-    selected_artists = st.multiselect("סנן לפי אמן", artists)
+    selected_artists = st.multiselect("סנן לפי אמן (מתוך עמוד זה)", artists)
 
     boxes = sorted(df["box"].dropna().unique()) if not df.empty else []
     selected_boxes = st.multiselect("סנן לפי מספר קופסה", [int(b) for b in boxes])
 
-    st.subheader("מיון")
-    
-    # Map friendly Hebrew names to actual columns to make sorting functional and responsive
-    sort_options = {
-        "מספר קופסה": "box",
-        "אמן": "artist",
-        "שם התקליט": "name",
-        "תגית (מחיר/טקסט)": "tag",
-        "גרסה": "version"
-    }
-    
-    sort_label = st.selectbox("מיין לפי", list(sort_options.keys()), index=0)
-    sort_col = sort_options[sort_label]
-    sort_asc = st.toggle("סדר עולה (א→ת / 1→9)", value=True)
-
     st.divider()
-    if st.button("🔄 רענן נתונים", use_container_width=True):
+    if st.button("🔄 חזור לעמוד הראשון / רענן", use_container_width=True):
         refresh()
         st.rerun()
 
 # ---------------------------------------------------------------------------
-# Apply filters
+# Apply filters (In memory, over the loaded 50 batch)
 # ---------------------------------------------------------------------------
 
 filtered = df.copy()
 
 if search_query:
     q = search_query.lower()
-    # Free-text search by Artist or Album Name specifically
     mask = filtered.apply(
         lambda row: q in str(row.get("artist", "")).lower() or q in str(row.get("name", "")).lower(), 
         axis=1
@@ -321,12 +319,6 @@ if selected_artists:
 if selected_boxes:
     filtered = filtered[filtered["box"].isin(selected_boxes)]
 
-# Apply sorting
-if sort_col == "box":
-    filtered = filtered.sort_values(by=["box", "artist"], ascending=[sort_asc, True], ignore_index=True)
-else:
-    filtered = filtered.sort_values(by=sort_col, ascending=sort_asc, ignore_index=True)
-
 # ---------------------------------------------------------------------------
 # Header & Action Buttons (Main Page)
 # ---------------------------------------------------------------------------
@@ -334,7 +326,7 @@ else:
 st.markdown(
     '<div class="main-header">'
     "<h1>🎵אוסף התקליטים🎵</h1>"
-    "<p>ניהול וצפייה באוסף התקליטים של ירון</p>"
+    "<p>ניהול אלפביתי וצפייה באוסף התקליטים של ירון</p>"
     "</div>",
     unsafe_allow_html=True,
 )
@@ -353,17 +345,16 @@ def confirm_deletion(record_id, record_desc):
         if st.button("ביטול", use_container_width=True):
             st.rerun()
 
-# Put Action Buttons directly under the main header
 col1, col2 = st.columns(2)
 
 with col1:
     with st.expander("➕ הוספת תקליט חדש"):
         with st.form("add_form", clear_on_submit=True):
+            new_box = st.number_input("מספר קופסה *", min_value=1, step=1, value=1)
+            new_id_letter = st.text_input("אות זיהוי (למיונים)", max_chars=1)
             new_artist = st.text_input("אמן *")
             new_name = st.text_input("שם התקליט *")
-            new_version = st.text_input("גרסה", value="אלבום")
-            new_box = st.number_input("מספר קופסה *", min_value=1, step=1, value=1)
-            new_tag = st.text_input("תגית (מחיר/טקסט)", value="0")
+            new_notes = st.text_input("הערות")
 
             submitted = st.form_submit_button("הוסף תקליט", type="primary", use_container_width=True)
             if submitted:
@@ -372,10 +363,10 @@ with col1:
                 else:
                     record_store.add(db, {
                         "box": int(new_box),
+                        "id_letter": new_id_letter.strip(),
                         "artist": new_artist.strip(),
                         "name": new_name.strip(),
-                        "version": new_version.strip(),
-                        "tag": new_tag.strip(),
+                        "notes": new_notes.strip(),
                     })
                     st.success(f"✅ התקליט '{new_name}' נוסף בהצלחה!")
                     refresh()
@@ -396,23 +387,21 @@ with col2:
 # Editable table
 # ---------------------------------------------------------------------------
 
-st.subheader("📀 רשימת תקליטים")
+st.subheader("📀 רשימת תקליטים - עמוד ממוין")
 
 if filtered.empty:
-    st.info("לא נמצאו תקליטים. הוסף תקליטים חדשים למעלה או שנה את הסינון.")
+    st.info("לא נמצאו תקליטים בעמוד זה. הוסף תקליטים חדשים או נווט בעמודים.")
 else:
-    display_df = filtered.drop(columns=["id"])
+    display_df = filtered.drop(columns=["id", "sorting_key"], errors="ignore")
     column_config = {
         "box": st.column_config.NumberColumn("קופסה", min_value=1, step=1),
+        "id_letter": st.column_config.TextColumn("אות זיהוי"),
         "artist": st.column_config.TextColumn("אמן"),
         "name": st.column_config.TextColumn("שם התקליט"),
-        "version": st.column_config.TextColumn("גרסה"),
-        "tag": st.column_config.TextColumn("תגית (מחיר/טקסט)"),
+        "notes": st.column_config.TextColumn("הערות"),
     }
     
-    # We use a dynamic format for the key. If the user changes sort order or search, the table key changes.
-    # This completely overrides Streamlit's built-in frontend state memory, fixing unresponsive sorting.
-    table_key = f"record_table_{sort_col}_{sort_asc}_{hash(search_query)}"
+    table_key = f"record_table_{st.session_state['current_page']}_{hash(search_query)}"
 
     edited_df = st.data_editor(
         display_df,
@@ -422,7 +411,6 @@ else:
         key=table_key,
     )
 
-    # Detect edits
     if not display_df.equals(edited_df):
         if st.button("💾 שמור שינויים בטבלה", type="primary"):
             for idx in edited_df.index:
@@ -431,9 +419,23 @@ else:
                 if not original_row.equals(edited_row):
                     doc_id = filtered.loc[idx, "id"]
                     changes = edited_row.to_dict()
-                    # Ensure correct types
                     changes["box"] = int(changes["box"])
                     record_store.update(db, doc_id, changes)
             st.success("✅ השינויים נשמרו!")
             refresh()
             st.rerun()
+
+st.divider()
+
+col_prev, _, col_next = st.columns([1, 2, 1])
+with col_next:
+    if st.button("עמוד הבא ⬅️", use_container_width=True):
+         if not df.empty and len(df) == 50:
+             load_page(st.session_state["current_page"] + 1)
+             st.rerun()
+             
+with col_prev:
+    if st.button("➡️ עמוד קודם", use_container_width=True):
+         if st.session_state["current_page"] > 0:
+             load_page(st.session_state["current_page"] - 1)
+             st.rerun()
