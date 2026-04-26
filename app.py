@@ -15,12 +15,12 @@ import record_store
 # Page config
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="אוסף התקליטים",
+    page_title="אוסף התקליטים של ירון",
     layout="wide",
     initial_sidebar_state="auto", # Web open, Mobile closed defaults natively
 )
 
-# Dense AirBnB UX, Uniform Pastel Buttons, Clean Header
+# Dense AirBnB UX, Centered Buttons, Clean Header
 st.markdown(
     """
     <style>
@@ -33,7 +33,7 @@ st.markdown(
     
     /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        padding-top: 3rem !important; /* Fixed cut off */
+        padding-top: 2.5rem !important;
         padding-bottom: 1rem !important;
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
@@ -66,14 +66,13 @@ st.markdown(
         border-color: #7dd3fc !important;
     }
     
-    /* Override Primary and Secondary button variants specifically to force Pastel Blue uniformity */
     [data-testid="stButton"] button[kind="primary"], [data-testid="stButton"] button[kind="secondary"] {
         background-color: #e0f2fe !important; 
         color: #1e3a8a !important;            
         border-color: #bae6fd !important;
     }
 
-    /* Reset button inside sidebar (Mini Button Pastel Grey) */
+    /* Reset button inside sidebar */
     #reset-filters-anchor + div [data-testid="stButton"] button {
         background-color: #f1f5f9 !important;
         color: #475569 !important;
@@ -81,13 +80,27 @@ st.markdown(
         height: 38px !important;
     }
 
+    /* Centered Button Grid (Web) - Unified tight toolbox layout */
+    div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        justify-content: center !important;
+        gap: 0.8rem !important;
+        padding-bottom: 0px;
+    }
+    div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
+        flex: 0 1 auto !important;     /* Don't expand infinitely */
+        width: 160px !important;       /* Tight uniform width */
+        min-width: 140px !important;
+    }
+
     /* Very Light Pastel Blue Table Background + Padding */
     [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
         background-color: #f0f9ff !important; 
         border-radius: 12px;
-        padding: 0.8rem;
+        padding: 0.5rem;
         border: 1px solid #e2e8f0;
         box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        margin-top: 5px;
     }
     
     [data-testid="stDataEditor"] {
@@ -122,34 +135,35 @@ st.markdown(
         color: #64748b;
     }
 
-    /* Mobile Responsive Buttons (2x2 Grid specific for the top 4-button horizontal block) */
+    /* Mobile Responsive Buttons (2x2 Grid) */
     @media (max-width: 768px) {
         .block-container {
-            padding-top: 3.5rem !important;
+            padding-top: 2rem !important;
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
         }
         
-        /* 2x2 Grid via Modern CSS Sibling Selectors on Streamlit Elements */
+        /* Modifying the Button Grid specifically for mobile */
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
-            flex-direction: row !important;
             flex-wrap: wrap !important;
             gap: 10px !important;
+            justify-content: center !important;
         }
-        
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-            flex: 1 1 calc(50% - 10px) !important;
+            flex: 0 1 calc(50% - 10px) !important;
+            width: calc(50% - 10px) !important;
             min-width: calc(50% - 10px) !important;
         }
 
-        /* Compress layout for single-frame targeting */
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
+        .main-header h1 { font-size: 1.5rem !important; }
     }
     
     /* Toggle Switch Size Reduction */
     .stCheckbox label {
         font-size: 0.8rem !important;
         color: #64748b !important;
+        padding-right: 5px;
     }
     
     /* Removes the padding from stColumns to tightly hug the layout */
@@ -161,11 +175,24 @@ st.markdown(
     .element-container { margin-bottom: 0 !important; }
     
     /* Header Typography Adjustment */
+    .main-header {
+        text-align: center;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
     .main-header h1 {
         font-size: 1.8rem;
         font-weight: 700;
         color: #111;
         margin-bottom: 0.5rem !important;
+    }
+    
+    /* Small wrapper alignment for minimalist right alignment of toggle */
+    .table-toggle-wrapper {
+        display: flex;
+        justify-content: flex-end; /* RTL: right */
+        padding-top: 5px;
+        padding-bottom: 5px;
     }
     </style>
     """,
@@ -220,7 +247,6 @@ db = init_db()
 # State helpers & Fetch
 # ---------------------------------------------------------------------------
 def load_data():
-    """Fetch all records to support Global String Searching logic."""
     df = record_store.get_all(db)
     st.session_state["df"] = df
     st.session_state["current_page"] = 0
@@ -308,7 +334,7 @@ if st.session_state["current_page"] > MAX_PAGE:
 
 
 # ---------------------------------------------------------------------------
-# Dialog modals (Replaces vertical-consuming Expanders)
+# Dialog modals
 # ---------------------------------------------------------------------------
 
 @st.dialog("הוספת תקליט חדש")
@@ -366,21 +392,27 @@ def upload_csv_dialog():
 # Main Layout
 # ---------------------------------------------------------------------------
 
-# Controller Top-Left Over Table Space Saves Rows
-table_control_row_c1, title_col = st.columns([1, 4])
-with table_control_row_c1:
-    show_box = st.checkbox("הצג עמודת קופסא", value=False)
-with title_col:
-    st.markdown('<div class="main-header"><h1><i class="fas fa-record-vinyl" style="margin-right:8px; color: #1e3a8a;"></i>אוסף התקליטים</h1></div>', unsafe_allow_html=True)
+# Update Sidebar explicitly referencing the Current View (Density)
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: -10px;">
+        <span class="label">שורות בתצוגה (אחרי סינון)</span>
+        <span class="num">{total_filtered_records}</span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# 4-Button Row Hook (Triggers Mobile 2x2 Grid explicitly)
+st.markdown('<div class="main-header"><h1><i class="fas fa-record-vinyl" style="margin-right:8px; color: #1e3a8a;"></i>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
+
+# 4-Button Row Hook (Centered Toolset Width)
 st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
 btn_c1, btn_c2, btn_c3, btn_c4 = st.columns(4)
-with btn_c4: # Reversing direction assignment natively
-    if st.button("הוסף רשומה"):
+with btn_c4: # Right to left structurally
+    if st.button("הוסף לחץ"):
         add_record_dialog()
 with btn_c3:
-    if st.button("מחיקת רשומה"):
+    if st.button("מחק רשומה"):
         delete_record_dialog()
 with btn_c2:
     if st.button("עדכון רשומה"):
@@ -389,15 +421,20 @@ with btn_c1:
     if st.button("העלאת חומר"):
         upload_csv_dialog()
 
-# Display Current Sub-Count neatly
-st.markdown(f'<div style="text-align: right; padding: 2px 5px; margin-top: 5px;"><p style="font-size:0.8rem; color: #64748b;font-weight:600;">מציג דף {st.session_state["current_page"] + 1} ({total_filtered_records} שורות סה״כ)</p></div>', unsafe_allow_html=True)
+# Minimalist Toggle (Positioned Right, tightly placed before the grid)
+st.markdown('<div class="table-toggle-wrapper">', unsafe_allow_html=True)
+show_box = st.checkbox("הצג עמודת קופסא", value=False)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# Display Sub-Count neatly above table
+st.markdown(f'<div style="text-align: right; margin-top:-5px; margin-bottom:5px;"><p style="font-size:0.8rem; color: #64748b;font-weight:600;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Minimalist Table Interface
+# Minimalist Table Interface (index hidden)
 # ---------------------------------------------------------------------------
 
 if filtered_df.empty:
-    st.info("לא נמצאו תקליטים.")
+    st.info("לא נמצאו תקליטים תחת חיפוש זה.")
 else:
     START_IDX = st.session_state["current_page"] * 50
     END_IDX = START_IDX + 50
@@ -416,10 +453,12 @@ else:
         "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
     }
 
+    # hide_index=True strips the Serial Number exactly as requested.
     edited_df = st.data_editor(
         display_df,
         column_config=column_config,
         use_container_width=True,
+        hide_index=True,  
         num_rows="fixed",
         key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
     )
