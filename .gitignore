@@ -9,7 +9,6 @@ __pycache__/
 
 # Streamlit secrets (contains Firebase credentials)
 .streamlit/secrets.toml
-firebase-adminsdk.json
 
 # IDE
 .idea/
@@ -17,3 +16,6 @@ firebase-adminsdk.json
 
 # OS
 .DS_Store
+
+# Google Cloud / Firebase keys
+*.json
