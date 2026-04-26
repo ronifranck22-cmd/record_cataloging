@@ -17,10 +17,10 @@ import record_store
 st.set_page_config(
     page_title="אוסף התקליטים",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto", # Web open, Mobile closed defaults natively
 )
 
-# Dense AirBnB UX, Pastel Blue Table, Soft Blue Buttons, Responsive Button Row
+# Dense AirBnB UX, Uniform Pastel Buttons, Clean Header
 st.markdown(
     """
     <style>
@@ -31,52 +31,63 @@ st.markdown(
         font-family: 'Rubik', sans-serif;
     }
     
-    /* Maximize Density */
+    /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        padding-top: 1.5rem !important;
+        padding-top: 3rem !important; /* Fixed cut off */
         padding-bottom: 1rem !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
         max-width: 100% !important;
-    }
-    
-    /* Hide top padding space from empty header */
-    [data-testid="stHeader"] {
-        height: 0px !important;
     }
 
     h1, h2, h3, h4, p, label, .stMarkdown {
         direction: rtl;
         text-align: right;
-        margin-bottom: 0 !important;
+        margin-bottom: 0px !important;
     }
 
-    /* Standardized 4-Buttons Row (Soft Pastel Blue) */
+    /* ALL Uniform 4-Buttons Row (Soft Pastel Blue) */
     [data-testid="stButton"] button {
         border-radius: 12px !important;
         font-weight: 600;
-        background-color: #e0f2fe !important; /* Soft Pastel Blue */
-        color: #1e3a8a !important;            /* Dark Grey/Blue text */
+        background-color: #e0f2fe !important; 
+        color: #1e3a8a !important;            
         border: 1px solid #bae6fd !important;
         height: 48px !important;
         width: 100% !important;
         transition: all 0.2s ease-in-out;
         box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        margin-top: 0px !important;
     }
     
     [data-testid="stButton"] button:hover {
         transform: translateY(-1px);
-        box-shadow: 0 4px 6px rgba(0,0,0,0.08); /* Soft shadows */
+        box-shadow: 0 3px 6px rgba(0,0,0,0.08); 
         border-color: #7dd3fc !important;
+    }
+    
+    /* Override Primary and Secondary button variants specifically to force Pastel Blue uniformity */
+    [data-testid="stButton"] button[kind="primary"], [data-testid="stButton"] button[kind="secondary"] {
+        background-color: #e0f2fe !important; 
+        color: #1e3a8a !important;            
+        border-color: #bae6fd !important;
+    }
+
+    /* Reset button inside sidebar (Mini Button Pastel Grey) */
+    #reset-filters-anchor + div [data-testid="stButton"] button {
+        background-color: #f1f5f9 !important;
+        color: #475569 !important;
+        border-color: #cbd5e1 !important;
+        height: 38px !important;
     }
 
     /* Very Light Pastel Blue Table Background + Padding */
     [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
         background-color: #f0f9ff !important; 
         border-radius: 12px;
-        padding: 1.2rem;
+        padding: 0.8rem;
         border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
     }
     
     [data-testid="stDataEditor"] {
@@ -87,58 +98,74 @@ st.markdown(
     .sidebar-stats {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-        margin-bottom: 1.5rem;
-        margin-top: 1rem;
+        gap: 0.4rem;
+        margin-bottom: 0.8rem;
     }
     .sidebar-stat-card {
         background: #ffffff;
         border: 1px solid #f1f5f9;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.02);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
         border-radius: 8px;
-        padding: 0.6rem 1rem;
+        padding: 0.4rem 0.8rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         direction: rtl;
     }
     .sidebar-stat-card .num {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: 700;
         color: #1e3a8a;
     }
     .sidebar-stat-card .label {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: #64748b;
     }
 
-    /* Mobile Responsive Buttons (Horizontal Scroll instead of vertical stacking) */
+    /* Mobile Responsive Buttons (2x2 Grid specific for the top 4-button horizontal block) */
     @media (max-width: 768px) {
         .block-container {
-            padding: 1rem !important;
+            padding-top: 3.5rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
         }
-        /* Target the layout block containing the buttons to make it scrollable */
-        [data-testid="stHorizontalBlock"] {
-            flex-wrap: nowrap !important;
-            overflow-x: auto !important;
-            -webkit-overflow-scrolling: touch !important;
+        
+        /* 2x2 Grid via Modern CSS Sibling Selectors on Streamlit Elements */
+        div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
             gap: 10px !important;
-            padding-bottom: 5px;
         }
-        [data-testid="column"] {
-            min-width: 130px !important;
+        
+        div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
+            flex: 1 1 calc(50% - 10px) !important;
+            min-width: calc(50% - 10px) !important;
         }
+
+        /* Compress layout for single-frame targeting */
+        div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
     }
     
     /* Toggle Switch Size Reduction */
     .stCheckbox label {
-        font-size: 0.85rem !important;
+        font-size: 0.8rem !important;
         color: #64748b !important;
     }
     
     /* Removes the padding from stColumns to tightly hug the layout */
     [data-testid="column"] {
-        padding: 0 !important;
+        padding: 0 0.2rem !important;
+    }
+    
+    /* Tightly wrap elements vertically */
+    .element-container { margin-bottom: 0 !important; }
+    
+    /* Header Typography Adjustment */
+    .main-header h1 {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #111;
+        margin-bottom: 0.5rem !important;
     }
     </style>
     """,
@@ -171,9 +198,18 @@ if not check_password():
     st.stop()
 
 # ---------------------------------------------------------------------------
+# Init Form State Variables if they don't exist
+# ---------------------------------------------------------------------------
+if "search_input" not in st.session_state:
+    st.session_state["search_input"] = ""
+if "artist_select" not in st.session_state:
+    st.session_state["artist_select"] = []
+if "letter_select" not in st.session_state:
+    st.session_state["letter_select"] = []
+
+# ---------------------------------------------------------------------------
 # Firebase connection (cached)
 # ---------------------------------------------------------------------------
-
 @st.cache_resource
 def init_db():
     return get_db()
@@ -183,7 +219,6 @@ db = init_db()
 # ---------------------------------------------------------------------------
 # State helpers & Fetch
 # ---------------------------------------------------------------------------
-
 def load_data():
     """Fetch all records to support Global String Searching logic."""
     df = record_store.get_all(db)
@@ -224,18 +259,22 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     
-    st.markdown('<h3 style="text-align: right;"><i class="fas fa-search"></i> סינון</h3>', unsafe_allow_html=True)
+    st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> סינון</h3>', unsafe_allow_html=True)
 
-    search_query = st.text_input("", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...")
+    st.text_input("", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input")
 
     artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
-    selected_artists = st.multiselect("סנן לפי אמן", artists)
+    st.multiselect("סנן לפי אמן", artists, key="artist_select")
 
     letters = sorted(df["id_letter"].dropna().unique()) if not df.empty else []
-    selected_letters = st.multiselect("סנן לפי אות", letters)
+    st.multiselect("סנן לפי אות", letters, key="letter_select")
 
-    st.markdown("<br/>", unsafe_allow_html=True)
-    if st.button("רענן מול המסד", use_container_width=True):
+    # Reset Button via State
+    st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
+    if st.button("אפס סינונים ורענן", use_container_width=True):
+        st.session_state["search_input"] = ""
+        st.session_state["artist_select"] = []
+        st.session_state["letter_select"] = []
         refresh()
         st.rerun()
 
@@ -245,8 +284,9 @@ with st.sidebar:
 
 filtered_df = df.copy()
 
-if search_query:
-    q = search_query.lower()
+sq = st.session_state["search_input"]
+if sq:
+    q = sq.lower()
     mask = filtered_df.apply(
         lambda row: q in str(row.get("artist", "")).lower() or 
                     q in str(row.get("name", "")).lower() or 
@@ -255,11 +295,11 @@ if search_query:
     )
     filtered_df = filtered_df[mask]
 
-if selected_artists:
-    filtered_df = filtered_df[filtered_df["artist"].isin(selected_artists)]
+if st.session_state["artist_select"]:
+    filtered_df = filtered_df[filtered_df["artist"].isin(st.session_state["artist_select"])]
 
-if selected_letters:
-    filtered_df = filtered_df[filtered_df["id_letter"].isin(selected_letters)]
+if st.session_state["letter_select"]:
+    filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["letter_select"])]
 
 total_filtered_records = len(filtered_df)
 MAX_PAGE = max(0, (total_filtered_records - 1) // 50)
@@ -274,11 +314,10 @@ if st.session_state["current_page"] > MAX_PAGE:
 @st.dialog("הוספת תקליט חדש")
 def add_record_dialog():
     with st.form("add_form", clear_on_submit=True):
-        st.markdown("<p style='font-size: 0.9rem; color: #666;'>הכנס את פרטיי התקליט להלן. השדות המסומנים ב-* הינם חובה.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='font-size: 0.85rem; color: #666;'>השדות המסומנים ב-* הינם חובה.</p>", unsafe_allow_html=True)
         new_artist = st.text_input("שם אומן *")
         new_name = st.text_input("שם התקליט *")
         new_notes = st.text_input("הערות נוספות")
-        
         col_box, col_letter = st.columns(2)
         with col_box:
             new_box = st.number_input("קופסא", min_value=1, step=1, value=1)
@@ -303,74 +342,59 @@ def add_record_dialog():
 @st.dialog("מחיקת תקליט")
 def delete_record_dialog():
     if filtered_df.empty:
-         st.warning("אין תקליטים תחת הסינון הנוכחי למחיקה.")
+         st.warning("אין תקליטים לחיתוך זה.")
          return
-         
     delete_options = {
         f"{row['artist']} — {row['name']}": row["id"]
         for _, row in filtered_df.iterrows()
     }
     selected_delete = st.selectbox("בחר תקליט", list(delete_options.keys()))
-    st.error("פעולה זו תמחק את התקליט לצמיתות. האם להמשיך?")
-    if st.button("מחק סופית", use_container_width=True):
+    if st.button("מחק סופית", type="primary", use_container_width=True):
         record_store.delete(db, delete_options[selected_delete])
         load_data()
         st.rerun()
 
 @st.dialog("עדכון תקליט")
 def update_record_dialog():
-    st.info("ממשק ייעודי לעדכון מרובה יתווסף כאן בעתיד.")
+    st.info("כלי זה מיועד לעדכון מהיר בעתיד. קיימת עריכה ישירה בטבלה.")
 
 @st.dialog("העלאת קובץ")
 def upload_csv_dialog():
-    st.info("כלי העלאת CSV ימוקם כאן. כרגע ניתן להעלות דרך import_csv.py")
-
+    st.info("כלי העלאת CSV כרגע לא פעיל בממשק.")
 
 # ---------------------------------------------------------------------------
 # Main Layout
 # ---------------------------------------------------------------------------
 
-# Update Sidebar explicitly referencing the Current View (Density)
-st.sidebar.markdown(
-    f"""
-    <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: -10px;">
-        <span class="label">שורות בתצוגה (אחרי סינון)</span>
-        <span class="num">{total_filtered_records}</span>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# Controller Top-Left Over Table Space Saves Rows
+table_control_row_c1, title_col = st.columns([1, 4])
+with table_control_row_c1:
+    show_box = st.checkbox("הצג עמודת קופסא", value=False)
+with title_col:
+    st.markdown('<div class="main-header"><h1><i class="fas fa-record-vinyl" style="margin-right:8px; color: #1e3a8a;"></i>אוסף התקליטים</h1></div>', unsafe_allow_html=True)
 
-st.markdown('<h1 style="color: #0f172a; margin-top: 0; padding-top: 0;"><i class="fas fa-record-vinyl" style="margin-right:8px; color: #1e3a8a;"></i>אוסף התקליטים</h1>', unsafe_allow_html=True)
-st.markdown("<br/>", unsafe_allow_html=True)
-
-# 4-Button Row (Uniform Width & Height)
+# 4-Button Row Hook (Triggers Mobile 2x2 Grid explicitly)
+st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
 btn_c1, btn_c2, btn_c3, btn_c4 = st.columns(4)
-with btn_c1:
+with btn_c4: # Reversing direction assignment natively
     if st.button("הוסף רשומה"):
         add_record_dialog()
-with btn_c2:
-    if st.button("מחק רשומה"):
-        delete_record_dialog()
 with btn_c3:
-    if st.button("עדכן רשומה"):
+    if st.button("מחיקת רשומה"):
+        delete_record_dialog()
+with btn_c2:
+    if st.button("עדכון רשומה"):
         update_record_dialog()
-with btn_c4:
-    if st.button("העלה CSV"):
+with btn_c1:
+    if st.button("העלאת חומר"):
         upload_csv_dialog()
 
-st.markdown("<br/>", unsafe_allow_html=True)
-
+# Display Current Sub-Count neatly
+st.markdown(f'<div style="text-align: right; padding: 2px 5px; margin-top: 5px;"><p style="font-size:0.8rem; color: #64748b;font-weight:600;">מציג דף {st.session_state["current_page"] + 1} ({total_filtered_records} שורות סה״כ)</p></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Minimalist Table Interface
 # ---------------------------------------------------------------------------
-
-# Controller Top-Left 
-table_control_row_c1, table_control_row_c2 = st.columns([1, 4])
-with table_control_row_c1:
-    show_box = st.checkbox("הצג עמודת קופסא", value=True)
-
 
 if filtered_df.empty:
     st.info("לא נמצאו תקליטים.")
@@ -397,11 +421,11 @@ else:
         column_config=column_config,
         use_container_width=True,
         num_rows="fixed",
-        key=f"editor_{st.session_state['current_page']}_{hash(search_query)}",
+        key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
     )
 
     if not display_df.equals(edited_df):
-        if st.button("שמור שינויים למסד", type="primary"):
+        if st.button("שמור שינויים", type="primary"):
             for idx in edited_df.index:
                 original_row = display_df.loc[idx]
                 edited_row = edited_df.loc[idx]
@@ -414,21 +438,16 @@ else:
             load_data()  
             st.rerun()
 
-st.markdown("<br/>", unsafe_allow_html=True)
-
-# Footer Paginators
-paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([2, 8, 2])
+# Footer Paginators tightly grouped
+paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
 with paginator_col_next:
     if st.session_state["current_page"] > 0:
-        if st.button("הקודם"):
+        if st.button("הקודם ←"):
              st.session_state["current_page"] -= 1
              st.rerun()
              
 with paginator_col_prev:
     if st.session_state["current_page"] < MAX_PAGE:
-        if st.button("הבא"):
+        if st.button("→ הבא"):
              st.session_state["current_page"] += 1
              st.rerun()
-
-with paginator_col_pos:
-    st.markdown(f'<p style="text-align: center; font-size: 0.85rem; color: #94a3b8; padding-top: 10px;">עמוד {st.session_state["current_page"] + 1} מתוך {MAX_PAGE + 1}</p>', unsafe_allow_html=True)
