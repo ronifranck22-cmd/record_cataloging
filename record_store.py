@@ -7,8 +7,6 @@ from db_client but defines *what* data operations look like.
 """
 
 from __future__ import annotations
-
-from typing import Optional
 import re
 import pandas as pd
 
@@ -55,37 +53,30 @@ def generate_sorting_key(id_letter: str, artist: str, name: str) -> str:
 # Read
 # ---------------------------------------------------------------------------
 
-def get_page(db, limit=50, start_after=None) -> tuple[pd.DataFrame, Optional[any]]:
-    """Fetch a page of records ordered by sorting_key. Returns dataframe and the last snapshot."""
-    query = db.collection(COLLECTION).order_by("sorting_key").limit(limit)
-    if start_after:
-        query = query.start_after(start_after)
-    
+def get_all(db) -> pd.DataFrame:
+    """Fetch all records ordered by sorting_key to perform Pandas filters."""
+    query = db.collection(COLLECTION).order_by("sorting_key")
     docs = list(query.stream())
+    
     rows = []
     for doc in docs:
         data = doc.to_dict()
         data["id"] = doc.id
         rows.append(data)
 
-    last_doc = docs[-1] if docs else None
-
-    # Always ensure dataframe has necessary columns regardless of fetching results
     if not rows:
-        return pd.DataFrame(columns=["id", "sorting_key"] + FIELDS), None
+        return pd.DataFrame(columns=["id", "sorting_key"] + FIELDS)
 
     df = pd.DataFrame(rows)
     for col in FIELDS + ["sorting_key"]:
         if col not in df.columns:
             df[col] = None
-    
-    # Filter to requested columns while ignoring unknown properties safely
-    # but strictly ordering them.
+            
     ordered_cols = ["id", "sorting_key"] + FIELDS
     ordered_cols = [c for c in ordered_cols if c in df.columns]
     
     df = df[ordered_cols]
-    return df, last_doc
+    return df
 
 
 # ---------------------------------------------------------------------------
