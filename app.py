@@ -24,11 +24,21 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap');
     @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
     body {
-        font-family: 'Rubik', sans-serif;
+        font-family: 'Assistant', sans-serif;
+    }
+
+    /* Top-level background */
+    .stApp {
+        background-color: #f1f5f9 !important;
+    }
+
+    /* Hide the default Streamlit header and menu */
+    [data-testid="stHeader"], footer {
+        display: none !important;
     }
     
     /* Maximize Density, adjust top padding to prevent header cut-off */
@@ -46,30 +56,30 @@ st.markdown(
         margin-bottom: 0px !important;
     }
 
-    /* ALL Uniform 4-Buttons Row (Soft Pastel Blue) */
+    /* Modern Button Styling (Glassmorphism Light) */
     [data-testid="stButton"] button {
-        border-radius: 12px !important;
-        font-weight: 600;
-        background-color: #e0f2fe !important; 
-        color: #1e3a8a !important;            
-        border: 1px solid #bae6fd !important;
+        border-radius: 8px !important;
+        font-weight: 500 !important;
+        background-color: #f8fafc !important; 
+        color: #475569 !important;            
+        border: 1px solid #e2e8f0 !important;
         height: 48px !important;
         width: 100% !important;
-        transition: all 0.2s ease-in-out;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        transition: all 0.3s ease !important;
         margin-top: 0px !important;
     }
     
     [data-testid="stButton"] button:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 3px 6px rgba(0,0,0,0.08); 
-        border-color: #7dd3fc !important;
+        transform: translateY(-1px) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important; 
+        border-color: #3b82f6 !important;
+        color: #3b82f6 !important;
     }
     
     [data-testid="stButton"] button[kind="primary"], [data-testid="stButton"] button[kind="secondary"] {
-        background-color: #e0f2fe !important; 
-        color: #1e3a8a !important;            
-        border-color: #bae6fd !important;
+        background-color: #f8fafc !important; 
+        color: #475569 !important;            
+        border-color: #e2e8f0 !important;
     }
 
     /* Reset button inside sidebar */
@@ -80,22 +90,22 @@ st.markdown(
         height: 38px !important;
     }
 
-    /* Centered Button Grid (Web) - Unified tight toolbox layout */
+    /* Centered Button Grid (Web) - Breathable toolbox layout */
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
         display: flex !important;
         justify-content: center !important;
-        gap: 0.8rem !important;
+        gap: 1.5rem !important;
         padding-bottom: 0px;
     }
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
         flex: 0 1 auto !important;     /* Don't expand infinitely */
-        width: 160px !important;       /* Tight uniform width */
+        width: 140px !important;       /* Tight uniform width */
         min-width: 140px !important;
     }
 
-    /* Very Light Pastel Blue Table Background + Padding */
+    /* Clean White Table Background + Padding to pop off the container */
     [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
-        background-color: #f0f9ff !important; 
+        background-color: #ffffff !important; 
         border-radius: 12px;
         padding: 0.5rem;
         border: 1px solid #e2e8f0;
@@ -146,13 +156,13 @@ st.markdown(
         /* Modifying the Button Grid specifically for mobile */
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
             flex-wrap: wrap !important;
-            gap: 10px !important;
+            gap: 1.5rem !important;
             justify-content: center !important;
         }
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-            flex: 0 1 calc(50% - 10px) !important;
-            width: calc(50% - 10px) !important;
-            min-width: calc(50% - 10px) !important;
+            flex: 0 1 calc(50% - 1.5rem) !important;
+            width: calc(50% - 1.5rem) !important;
+            min-width: calc(50% - 1.5rem) !important;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
