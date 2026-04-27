@@ -424,16 +424,16 @@ st.markdown('<div class="main-header"><h1><i class="fas fa-record-vinyl" style="
 # 4-Button Row Hook (Centered Toolset Width)
 st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
 btn_c1, btn_c2, btn_c3, btn_c4 = st.columns(4)
-with btn_c4: # Right to left structurally
+with btn_c1:
     if st.button("הוסף רשומה"):
         add_record_dialog()
-with btn_c3:
+with btn_c2:
     if st.button("מחק רשומה"):
         delete_record_dialog()
-with btn_c2:
+with btn_c3:
     if st.button("עדכון רשומה"):
         update_record_dialog()
-with btn_c1:
+with btn_c4:
     if st.button("העלאת קובץ"):
         upload_csv_dialog()
 
@@ -456,11 +456,9 @@ else:
     END_IDX = START_IDX + 50
     page_df = filtered_df.iloc[START_IDX:END_IDX]
 
-    drop_cols = ["id", "sorting_key", "id_letter"]
-    if not show_box:
-        drop_cols.append("box")
-        
-    display_df = page_df.drop(columns=drop_cols, errors="ignore")
+    # Explicit column ordering
+    display_cols = ["box", "artist", "name", "notes"] if show_box else ["artist", "name", "notes"]
+    display_df = page_df[display_cols]
     
     column_config = {
         "artist": st.column_config.TextColumn("אמן"),
