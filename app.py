@@ -48,6 +48,7 @@ st.markdown(
         padding-left: 1.5rem !important;
         padding-right: 1.5rem !important;
         max-width: 100% !important;
+        direction: rtl !important;
     }
 
     h1, h2, h3, h4, p, label, .stMarkdown {
@@ -104,17 +105,22 @@ st.markdown(
     }
 
     /* Clean White Table Background + Padding to pop off the container */
-    [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+    [data-testid="stDataFrame"], [data-testid="stDataEditor"], [data-testid="stTable"] {
         background-color: #ffffff !important; 
         border-radius: 12px;
         padding: 0.5rem;
         border: 1px solid #e2e8f0;
         box-shadow: 0 2px 6px rgba(0,0,0,0.02);
         margin-top: 5px;
+        direction: rtl !important;
+        text-align: right !important;
     }
     
-    [data-testid="stDataEditor"] {
-        direction: rtl;
+    /* Force table headings and cells to align right */
+    [data-testid="stDataFrame"] th, [data-testid="stDataFrame"] td, 
+    [data-testid="stDataEditor"] th, [data-testid="stDataEditor"] td,
+    [data-testid="stDataFrame"] *, [data-testid="stDataEditor"] * {
+        text-align: right !important;
     }
 
     /* Sidebar Stats - Compact Mode */
@@ -419,7 +425,7 @@ st.markdown('<div class="main-header"><h1><i class="fas fa-record-vinyl" style="
 st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
 btn_c1, btn_c2, btn_c3, btn_c4 = st.columns(4)
 with btn_c4: # Right to left structurally
-    if st.button("הוסף לחץ"):
+    if st.button("הוסף רשומה"):
         add_record_dialog()
 with btn_c3:
     if st.button("מחק רשומה"):
@@ -428,7 +434,7 @@ with btn_c2:
     if st.button("עדכון רשומה"):
         update_record_dialog()
 with btn_c1:
-    if st.button("העלאת חומר"):
+    if st.button("העלאת קובץ"):
         upload_csv_dialog()
 
 # Minimalist Toggle (Positioned Right, tightly placed before the grid)
