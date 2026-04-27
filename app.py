@@ -456,14 +456,14 @@ else:
     END_IDX = START_IDX + 50
     page_df = filtered_df.iloc[START_IDX:END_IDX]
 
-    # Explicit column ordering
-    display_cols = ["box", "artist", "name", "notes"] if show_box else ["artist", "name", "notes"]
+    # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
+    display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
     display_df = page_df[display_cols]
     
     column_config = {
-        "artist": st.column_config.TextColumn("אמן"),
-        "name": st.column_config.TextColumn("שם התקליט"),
         "notes": st.column_config.TextColumn("הערות"),
+        "name": st.column_config.TextColumn("שם התקליט"),
+        "artist": st.column_config.TextColumn("אמן"),
         "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
     }
 
