@@ -40,9 +40,14 @@ st.markdown(
     footer {
         display: none !important;
     }
-    /* Attempt to hide only the deploy button and right menu, leaving the toggle unharmed */
-    .stAppDeployButton {
+    /* Safely hide the top-right toolbar (Edit, Share, Fork, Menu, Deploy) without breaking the toggle */
+    [data-testid="stToolbar"], [data-testid="viewerBadge"], .stAppDeployButton {
         display: none !important;
+    }
+    /* Make header transparent so it doesn't block the UI with a white bar */
+    [data-testid="stHeader"] {
+        background: transparent !important;
+        box-shadow: none !important;
     }
     
     /* Maximize Density, adjust top padding to prevent header cut-off */
