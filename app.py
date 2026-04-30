@@ -164,27 +164,38 @@ st.markdown(
     /* Mobile Responsive Buttons (2x2 Grid) */
     @media (max-width: 768px) {
         .block-container {
-            padding-top: 2rem !important;
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
+            padding-top: 1rem !important;
+            padding-left: 0.2rem !important;
+            padding-right: 0.2rem !important;
+            padding-bottom: 0.5rem !important;
         }
         
         /* Modifying the Button Grid specifically for mobile */
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important; /* CRITICAL: Override Streamlit's native vertical stack on mobile */
             flex-wrap: wrap !important;
-            gap: 0.5rem !important;
-            justify-content: flex-start !important;
+            gap: 0.3rem !important;
+            justify-content: space-between !important;
             direction: rtl !important;
         }
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-            flex: 0 0 calc(50% - 0.25rem) !important;
-            width: calc(50% - 0.25rem) !important;
-            min-width: calc(50% - 0.25rem) !important;
-            max-width: calc(50% - 0.25rem) !important;
+            flex: 0 0 calc(50% - 0.2rem) !important;
+            width: calc(50% - 0.2rem) !important;
+            min-width: calc(50% - 0.2rem) !important;
+            max-width: calc(50% - 0.2rem) !important;
+            padding: 0 !important; /* Remove any internal column padding */
+        }
+
+        /* Smaller buttons on mobile to save vertical space */
+        [data-testid="stButton"] button {
+            height: 38px !important;
+            font-size: 0.85rem !important;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
-        .main-header h1 { font-size: 1.5rem !important; }
+        .main-header h1 { font-size: 1.4rem !important; margin-bottom: 0 !important; }
+        .main-header { margin-bottom: 0.2rem !important; }
     }
     
     /* Toggle Switch Size Reduction */
@@ -206,13 +217,13 @@ st.markdown(
     .main-header {
         text-align: center;
         width: 100%;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
     }
     .main-header h1 {
         font-size: 1.8rem;
         font-weight: 700;
         color: #111;
-        margin-bottom: 0.5rem !important;
+        margin-bottom: 0.2rem !important;
     }
     
     /* Small wrapper alignment for minimalist right alignment of toggle */
