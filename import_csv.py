@@ -17,7 +17,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-from record_store import generate_sorting_key
+from record_store import generate_sorting_key, process_record_fields
 
 # --- Configuration ---
 #CSV_PATH = Path(__file__).parent / "records.csv"
@@ -33,14 +33,13 @@ def _parse_row(row: dict) -> dict:
     name = str(row.get("name", "")).strip() if "name" in row and row.get("name") else None
     
     data = {
-        "box": int(row["box"]),
+        "box": int(row["box"]) if row.get("box") else 1,
         "id_letter": id_letter,
         "artist": artist,
         "name": name,
         "notes": row.get("notes") if row.get("notes") else None
     }
-    data["sorting_key"] = generate_sorting_key(id_letter, artist, name)
-    return data
+    return process_record_fields(data)
 
 
 

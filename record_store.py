@@ -14,6 +14,69 @@ COLLECTION = "records"
 
 FIELDS = ["box", "id_letter", "artist", "name", "notes"]
 
+def normalize_hebrew_text(text: str) -> tuple[str, str]:
+    """
+    Returns (translated_text, first_letter)
+    e.g., '4 קולות' -> ('ארבעה קולות', 'א')
+    """
+    if not text:
+        return "", ""
+        
+    text = text.strip()
+    match = re.match(r'^(\d+)(.*)', text)
+    if match:
+        num_str = match.group(1)
+        rest = match.group(2)
+        num = int(num_str)
+        
+        hebrew_map = {
+            0: "אפס", 1: "אחד", 2: "שניים", 3: "שלושה", 4: "ארבעה",
+            5: "חמישה", 6: "שישה", 7: "שבעה", 8: "שמונה", 9: "תשעה",
+            10: "עשר", 11: "אחת עשרה", 12: "שתים עשרה", 13: "שלוש עשרה",
+            14: "ארבע עשרה", 15: "חמש עשרה", 16: "שש עשרה", 17: "שבע עשרה",
+            18: "שמונה עשרה", 19: "תשע עשרה", 20: "עשרים", 30: "שלושים",
+            40: "ארבעים", 50: "חמישים", 60: "שישים", 70: "שבעים",
+            80: "שמונים", 90: "תשעים", 100: "מאה"
+        }
+        
+        word = hebrew_map.get(num)
+        if not word:
+            first_digit = int(num_str[0])
+            word = hebrew_map.get(first_digit, num_str)
+            
+        translated = word + rest
+        return translated, word[0]
+        
+    letter = ""
+    for char in text:
+        if char.isalpha():
+            letter = char
+            break
+    if not letter and text:
+        letter = text[0]
+        
+    return text, letter
+
+def process_record_fields(record: dict) -> dict:
+    """Enriches the record by resolving digit prefixes to Hebrew words for sorting/id."""
+    artist = record.get("artist", "") or ""
+    name = record.get("name", "") or ""
+    id_letter = str(record.get("id_letter", "") or "").strip()
+    
+    artist_translated, artist_letter = normalize_hebrew_text(artist)
+    name_translated, name_letter = normalize_hebrew_text(name)
+    
+    if not id_letter or id_letter.isdigit():
+        if artist_translated:
+            id_letter = artist_letter
+        elif name_translated:
+            id_letter = name_letter
+            
+    record["id_letter"] = id_letter
+    record["sorting_key"] = generate_sorting_key(id_letter, artist_translated, name_translated)
+    return record
+
+
 
 def extract_root(prefix_letter: str, text: str) -> str:
     """Find the first word in 'text' that matches 'prefix_letter', ignoring 'ה'."""
@@ -85,11 +148,7 @@ def get_all(db) -> pd.DataFrame:
 
 def add(db, record: dict) -> str:
     """Add a single record. Returns the new document ID."""
-    record["sorting_key"] = generate_sorting_key(
-        record.get("id_letter", ""),
-        record.get("artist", ""),
-        record.get("name", "")
-    )
+    record = process_record_fields(record)
     doc_ref = db.collection(COLLECTION).document()
     doc_ref.set(record)
     return doc_ref.id
@@ -106,11 +165,9 @@ def update(db, doc_id: str, fields: dict) -> None:
         if doc.exists:
             current_data = doc.to_dict()
             current_data.update(fields)
-            fields["sorting_key"] = generate_sorting_key(
-                current_data.get("id_letter", ""),
-                current_data.get("artist", ""),
-                current_data.get("name", "")
-            )
+            current_data = process_record_fields(current_data)
+            fields["id_letter"] = current_data["id_letter"]
+            fields["sorting_key"] = current_data["sorting_key"]
             
     db.collection(COLLECTION).document(doc_id).update(fields)
 
