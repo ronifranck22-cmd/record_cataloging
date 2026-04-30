@@ -37,12 +37,17 @@ st.markdown(
     }
 
     /* Hide the default Streamlit menu and footer, but keep the header for the sidebar toggle */
-    [data-testid="stToolbar"], [data-testid="stHeader"] [data-testid="stAppViewBlockContainer"], footer {
+    [data-testid="stToolbar"], footer {
         display: none !important;
     }
     [data-testid="stHeader"] {
         background: transparent !important;
         box-shadow: none !important;
+    }
+    /* Explicitly ensure the toggle is visible */
+    [data-testid="collapsedControl"] {
+        z-index: 1000000 !important;
+        display: flex !important;
     }
     
     /* Maximize Density, adjust top padding to prevent header cut-off */
