@@ -36,23 +36,16 @@ st.markdown(
         background-color: #f1f5f9 !important;
     }
 
-    /* Hide footer, but allow Streamlit's default header so the sidebar toggle is always accessible */
+    /* Hide footer */
     footer {
         display: none !important;
     }
-    /* Safely hide ONLY the specific top-right icons (Edit, Share, Fork, Menu, Deploy) */
-    [data-testid="manage-app-button"], 
-    [data-testid="share-app-button"], 
-    [data-testid="viewerBadge"],
+    /* Hide top-right icons (Edit, Share, Fork, Menu, Deploy) without touching the sidebar or header */
+    [class^="viewerBadge"],
     [data-testid="stActionElements"],
     [data-testid="MainMenu"],
     .stAppDeployButton {
         display: none !important;
-    }
-    /* Make header transparent so it doesn't block the UI with a white bar */
-    [data-testid="stHeader"] {
-        background: transparent !important;
-        box-shadow: none !important;
     }
     
     /* Maximize Density, adjust top padding to prevent header cut-off */
