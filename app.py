@@ -91,11 +91,11 @@ st.markdown(
         height: 38px !important;
     }
 
-    /* Centered Button Grid (Web) - Breathable toolbox layout */
+    /* Button Grid (Web) - Right aligned tight layout */
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
         display: flex !important;
-        justify-content: center !important;
-        gap: 1.5rem !important;
+        justify-content: flex-start !important;
+        gap: 0.25rem !important;
         padding-bottom: 0px;
     }
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
@@ -162,13 +162,13 @@ st.markdown(
         /* Modifying the Button Grid specifically for mobile */
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
             flex-wrap: wrap !important;
-            gap: 1.5rem !important;
-            justify-content: center !important;
+            gap: 0.25rem !important;
+            justify-content: flex-start !important;
         }
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-            flex: 0 1 calc(50% - 1.5rem) !important;
-            width: calc(50% - 1.5rem) !important;
-            min-width: calc(50% - 1.5rem) !important;
+            flex: 0 1 calc(50% - 0.25rem) !important;
+            width: calc(50% - 0.25rem) !important;
+            min-width: calc(50% - 0.25rem) !important;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
@@ -419,7 +419,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown('<div class="main-header"><h1><i class="fas fa-record-vinyl" style="margin-right:8px; color: #1e3a8a;"></i>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header"><h1>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
 
 # 4-Button Row Hook (Centered Toolset Width)
 st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
