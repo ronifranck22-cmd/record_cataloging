@@ -36,9 +36,13 @@ st.markdown(
         background-color: #f1f5f9 !important;
     }
 
-    /* Hide the default Streamlit header and menu */
-    [data-testid="stHeader"], footer {
+    /* Hide the default Streamlit menu and footer, but keep the header for the sidebar toggle */
+    [data-testid="stToolbar"], [data-testid="stHeader"] [data-testid="stAppViewBlockContainer"], footer {
         display: none !important;
+    }
+    [data-testid="stHeader"] {
+        background: transparent !important;
+        box-shadow: none !important;
     }
     
     /* Maximize Density, adjust top padding to prevent header cut-off */
@@ -94,14 +98,17 @@ st.markdown(
     /* Button Grid (Web) - Right aligned tight layout */
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
         display: flex !important;
+        flex-direction: row !important;
         justify-content: flex-start !important;
+        direction: rtl !important;
         gap: 0.25rem !important;
         padding-bottom: 0px;
     }
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-        flex: 0 1 auto !important;     /* Don't expand infinitely */
-        width: 140px !important;       /* Tight uniform width */
+        flex: 0 0 140px !important;    /* Force exact width, no stretching */
+        width: 140px !important;       
         min-width: 140px !important;
+        max-width: 140px !important;
     }
 
     /* Clean White Table Background + Padding to pop off the container */
@@ -162,13 +169,15 @@ st.markdown(
         /* Modifying the Button Grid specifically for mobile */
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
             flex-wrap: wrap !important;
-            gap: 0.25rem !important;
+            gap: 0.5rem !important;
             justify-content: flex-start !important;
+            direction: rtl !important;
         }
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-            flex: 0 1 calc(50% - 0.25rem) !important;
+            flex: 0 0 calc(50% - 0.25rem) !important;
             width: calc(50% - 0.25rem) !important;
             min-width: calc(50% - 0.25rem) !important;
+            max-width: calc(50% - 0.25rem) !important;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
