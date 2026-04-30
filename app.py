@@ -40,8 +40,13 @@ st.markdown(
     footer {
         display: none !important;
     }
-    /* Safely hide the top-right toolbar (Edit, Share, Fork, Menu, Deploy) without breaking the toggle */
-    [data-testid="stToolbar"], [data-testid="viewerBadge"], .stAppDeployButton {
+    /* Safely hide ONLY the specific top-right icons (Edit, Share, Fork, Menu, Deploy) */
+    [data-testid="manage-app-button"], 
+    [data-testid="share-app-button"], 
+    [data-testid="viewerBadge"],
+    [data-testid="stActionElements"],
+    [data-testid="MainMenu"],
+    .stAppDeployButton {
         display: none !important;
     }
     /* Make header transparent so it doesn't block the UI with a white bar */
