@@ -473,10 +473,10 @@ else:
     display_df = page_df[display_cols]
     
     column_config = {
-        "notes": st.column_config.TextColumn("הערות", alignment="right"),
-        "name": st.column_config.TextColumn("שם התקליט", alignment="right"),
-        "artist": st.column_config.TextColumn("אמן", alignment="right"),
-        "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1, alignment="right"),
+        "notes": st.column_config.TextColumn("הערות"),
+        "name": st.column_config.TextColumn("שם התקליט"),
+        "artist": st.column_config.TextColumn("אמן"),
+        "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
     }
 
     # hide_index=True strips the Serial Number exactly as requested.
