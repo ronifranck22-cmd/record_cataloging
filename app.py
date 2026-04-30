@@ -17,7 +17,7 @@ import record_store
 st.set_page_config(
     page_title="אוסף התקליטים של ירון",
     layout="wide",
-    initial_sidebar_state="auto", # Web open, Mobile closed defaults natively
+    initial_sidebar_state="expanded", # Ensure sidebar is visibly open by default
 )
 
 # Dense AirBnB UX, Centered Buttons, Clean Header
@@ -36,18 +36,13 @@ st.markdown(
         background-color: #f1f5f9 !important;
     }
 
-    /* Hide the default Streamlit menu and footer, but keep the header for the sidebar toggle */
-    [data-testid="stToolbar"], footer {
+    /* Hide footer, but allow Streamlit's default header so the sidebar toggle is always accessible */
+    footer {
         display: none !important;
     }
-    [data-testid="stHeader"] {
-        background: transparent !important;
-        box-shadow: none !important;
-    }
-    /* Explicitly ensure the toggle is visible */
-    [data-testid="collapsedControl"] {
-        z-index: 1000000 !important;
-        display: flex !important;
+    /* Attempt to hide only the deploy button and right menu, leaving the toggle unharmed */
+    .stAppDeployButton {
+        display: none !important;
     }
     
     /* Maximize Density, adjust top padding to prevent header cut-off */
