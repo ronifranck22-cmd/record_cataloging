@@ -136,7 +136,7 @@ st.markdown(
     }
 
     /* Button Grid (Web) - Unified Tight Toolbar Layout */
-    div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
+    div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row-reverse !important; /* RTL Support */
         justify-content: flex-start !important; /* Group tightly to the right */
@@ -144,7 +144,7 @@ st.markdown(
         padding-bottom: 0px;
     }
     
-    div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
+    div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="column"] {
         flex: 0 0 auto !important;    /* No stretching */
         width: auto !important;       
         min-width: 0 !important;
@@ -153,7 +153,7 @@ st.markdown(
     }
     
     /* Ensure buttons maintain uniform size and Corporate Blue aesthetic */
-    div:has(> #action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
+    div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
         width: 140px !important;
     }
 
@@ -226,13 +226,13 @@ st.markdown(
         }
         
         /* Force Mobile 2x2 Grid Layout */
-        div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
+        div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
             display: grid !important;
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 8px !important;
             direction: rtl !important;
         }
-        div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
+        div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="column"] {
             width: 100% !important;
             min-width: 0 !important;
             max-width: none !important;
@@ -241,7 +241,7 @@ st.markdown(
         }
 
         /* Responsive buttons for the grid */
-        div:has(> #action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
+        div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
             width: 100% !important;
             height: 40px !important;
             font-size: 0.85rem !important;
