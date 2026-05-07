@@ -28,21 +28,21 @@ st.markdown(
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap');
     @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
-    /* CSS Variables for Corporate Blue Theme */
+    /* CSS Variables for Warm Pastel Theme */
     :root {
-        --color-bg-main: #f8fafc;        /* Very Light Slate */
-        --color-bg-surface: #ffffff;     /* Pure White */
-        --color-primary: #1d4ed8;        /* Corporate Blue */
-        --color-primary-hover: #2563eb;  /* Lighter Blue */
-        --color-text-main: #0f172a;      /* Dark Slate */
-        --color-text-muted: #64748b;     /* Slate */
-        --color-border: #e2e8f0;         /* Light Gray */
-        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        --radius-md: 8px;
-        --radius-lg: 12px;
-        --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        --color-bg-main: #FFF6F0;        /* Warm cream/ivory */
+        --color-bg-surface: #FFFFFF;     /* Pure White */
+        --color-primary: #FF9A9E;        /* Pastel Coral/Pink */
+        --color-primary-hover: #FF8186;  /* Deeper coral */
+        --color-text-main: #4A4443;      /* Warm charcoal gray */
+        --color-text-muted: #9E9391;     /* Warm muted taupe */
+        --color-border: #F4EAE3;         /* Soft peachy-gray */
+        --shadow-sm: 0 1px 2px 0 rgba(138, 115, 115, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(138, 115, 115, 0.1), 0 2px 4px -1px rgba(138, 115, 115, 0.06);
+        --shadow-hover: 0 10px 15px -3px rgba(138, 115, 115, 0.15), 0 4px 6px -2px rgba(138, 115, 115, 0.1);
+        --radius-md: 16px;
+        --radius-lg: 16px;
+        --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     /* Base Styling */
@@ -112,10 +112,10 @@ st.markdown(
     
     [data-testid="stButton"] button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: var(--shadow-md) !important; 
+        box-shadow: var(--shadow-hover) !important; 
         border-color: var(--color-primary) !important;
         color: var(--color-primary) !important;
-        background-color: #eff6ff !important; /* Very light blue on hover */
+        background-color: #FFF0E6 !important; /* Soft peach on hover */
     }
     
     [data-testid="stButton"] button:active {
@@ -210,8 +210,9 @@ st.markdown(
         transition: var(--transition);
     }
     .sidebar-stat-card:hover {
-        border-color: #cbd5e1;
-        box-shadow: var(--shadow-md);
+        border-color: var(--color-primary);
+        box-shadow: var(--shadow-hover);
+        transform: translateY(-2px);
     }
     .sidebar-stat-card .num {
         font-size: 1.15rem;
