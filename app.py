@@ -24,87 +24,124 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700&display=swap');
+    /* Google Fonts */
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap');
     @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
+    /* CSS Variables for Corporate Blue Theme */
+    :root {
+        --color-bg-main: #f8fafc;        /* Very Light Slate */
+        --color-bg-surface: #ffffff;     /* Pure White */
+        --color-primary: #1d4ed8;        /* Corporate Blue */
+        --color-primary-hover: #2563eb;  /* Lighter Blue */
+        --color-text-main: #0f172a;      /* Dark Slate */
+        --color-text-muted: #64748b;     /* Slate */
+        --color-border: #e2e8f0;         /* Light Gray */
+        --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        --shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        --radius-md: 8px;
+        --radius-lg: 12px;
+        --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Base Styling */
     body {
-        font-family: 'Assistant', sans-serif;
-    }
-
-    /* Top-level background */
-    .stApp {
-        background-color: #f1f5f9 !important;
-    }
-
-    /* Hide footer */
-    footer {
-        display: none !important;
-    }
-    /* Hide top-right icons (Edit, Share, Fork, Menu, Deploy) without touching the sidebar or header */
-    [class^="viewerBadge"],
-    [data-testid="stActionElements"],
-    [data-testid="MainMenu"],
-    .stAppDeployButton {
-        display: none !important;
+        font-family: 'Assistant', sans-serif !important;
+        background-color: var(--color-bg-main) !important;
+        color: var(--color-text-main);
     }
     
+    .stApp {
+        background-color: var(--color-bg-main) !important;
+    }
+
+    /* Hide Unwanted Streamlit Elements safely */
+    footer { display: none !important; }
+    [class^="viewerBadge"], [data-testid="stActionElements"], [data-testid="MainMenu"], .stAppDeployButton {
+        display: none !important;
+    }
+
     /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
         padding-top: 2.5rem !important;
         padding-bottom: 1rem !important;
-        padding-left: 1.5rem !important;
-        padding-right: 1.5rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
         max-width: 100% !important;
         direction: rtl !important;
     }
 
+    /* Typography Directions */
     h1, h2, h3, h4, p, label, .stMarkdown {
         direction: rtl;
         text-align: right;
-        margin-bottom: 0px !important;
+        font-family: 'Assistant', sans-serif !important;
+        color: var(--color-text-main);
     }
 
-    /* Modern Button Styling (Glassmorphism Light) */
+    /* Header Typography Adjustment */
+    .main-header {
+        text-align: center;
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    .main-header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--color-primary);
+        margin-bottom: 0 !important;
+        letter-spacing: -0.02em;
+    }
+
+    /* Modern Button Styling (Corporate Blue & Glassmorphism) */
     [data-testid="stButton"] button {
-        border-radius: 8px !important;
-        font-weight: 500 !important;
-        background-color: #f8fafc !important; 
-        color: #475569 !important;            
-        border: 1px solid #e2e8f0 !important;
-        height: 48px !important;
+        border-radius: var(--radius-md) !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+        background-color: var(--color-bg-surface) !important; 
+        color: var(--color-text-main) !important;            
+        border: 1px solid var(--color-border) !important;
+        height: 44px !important;
         width: 100% !important;
-        transition: all 0.3s ease !important;
+        box-shadow: var(--shadow-sm) !important;
+        transition: var(--transition) !important;
         margin-top: 0px !important;
     }
     
     [data-testid="stButton"] button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important; 
-        border-color: #3b82f6 !important;
-        color: #3b82f6 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: var(--shadow-md) !important; 
+        border-color: var(--color-primary) !important;
+        color: var(--color-primary) !important;
+        background-color: #eff6ff !important; /* Very light blue on hover */
     }
     
-    [data-testid="stButton"] button[kind="primary"], [data-testid="stButton"] button[kind="secondary"] {
-        background-color: #f8fafc !important; 
-        color: #475569 !important;            
-        border-color: #e2e8f0 !important;
+    [data-testid="stButton"] button:active {
+        transform: translateY(0px) !important;
     }
 
     /* Reset button inside sidebar */
     #reset-filters-anchor + div [data-testid="stButton"] button {
-        background-color: #f1f5f9 !important;
-        color: #475569 !important;
-        border-color: #cbd5e1 !important;
+        background-color: var(--color-bg-main) !important;
+        border-color: var(--color-border) !important;
         height: 38px !important;
+        font-size: 0.85rem !important;
+        box-shadow: none !important;
+    }
+    #reset-filters-anchor + div [data-testid="stButton"] button:hover {
+        background-color: #fee2e2 !important; /* Subtle red for reset */
+        color: #ef4444 !important;
+        border-color: #fca5a5 !important;
     }
 
-    /* Button Grid (Web) - Right aligned tight layout */
+    /* Button Grid (Web) - Advanced Flexbox Layout */
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         justify-content: flex-start !important;
         direction: rtl !important;
-        gap: 0.25rem !important;
+        gap: 12px !important;
         padding-bottom: 0px;
     }
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
@@ -114,16 +151,21 @@ st.markdown(
         max-width: 140px !important;
     }
 
-    /* Clean White Table Background + Padding to pop off the container */
+    /* Clean White Table Background + Surface Shadows */
     [data-testid="stDataFrame"], [data-testid="stDataEditor"], [data-testid="stTable"] {
-        background-color: #ffffff !important; 
-        border-radius: 12px;
+        background-color: var(--color-bg-surface) !important; 
+        border-radius: var(--radius-lg);
         padding: 0.5rem;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-md);
         margin-top: 5px;
         direction: rtl !important;
         text-align: right !important;
+        transition: var(--transition);
+    }
+    
+    [data-testid="stDataFrame"]:hover, [data-testid="stDataEditor"]:hover {
+        box-shadow: var(--shadow-hover);
     }
     
     /* Force table headings and cells to align right */
@@ -131,43 +173,50 @@ st.markdown(
     [data-testid="stDataEditor"] th, [data-testid="stDataEditor"] td,
     [data-testid="stDataFrame"] *, [data-testid="stDataEditor"] * {
         text-align: right !important;
+        font-family: 'Assistant', sans-serif !important;
     }
 
-    /* Sidebar Stats - Compact Mode */
+    /* Sidebar Stats - Clean Corporate Cards */
     .sidebar-stats {
         display: flex;
         flex-direction: column;
-        gap: 0.4rem;
-        margin-bottom: 0.8rem;
+        gap: 8px;
+        margin-bottom: 1rem;
     }
     .sidebar-stat-card {
-        background: #ffffff;
-        border: 1px solid #f1f5f9;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-        border-radius: 8px;
-        padding: 0.4rem 0.8rem;
+        background: var(--color-bg-surface);
+        border: 1px solid var(--color-border);
+        box-shadow: var(--shadow-sm);
+        border-radius: var(--radius-md);
+        padding: 0.6rem 1rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         direction: rtl;
+        transition: var(--transition);
+    }
+    .sidebar-stat-card:hover {
+        border-color: #cbd5e1;
+        box-shadow: var(--shadow-md);
     }
     .sidebar-stat-card .num {
-        font-size: 1.05rem;
-        font-weight: 700;
-        color: #1e3a8a;
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: var(--color-primary);
     }
     .sidebar-stat-card .label {
-        font-size: 0.75rem;
-        color: #64748b;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text-muted);
     }
 
-    /* Mobile Responsive Buttons (2x2 Grid) */
+    /* Mobile Responsive Optimizations */
     @media (max-width: 768px) {
         .block-container {
-            padding-top: 1rem !important;
-            padding-left: 0.2rem !important;
-            padding-right: 0.2rem !important;
-            padding-bottom: 0.5rem !important;
+            padding-top: 1.5rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            padding-bottom: 1rem !important;
         }
         
         /* Modifying the Button Grid specifically for mobile */
@@ -175,34 +224,41 @@ st.markdown(
             display: flex !important;
             flex-direction: row !important; /* CRITICAL: Override Streamlit's native vertical stack on mobile */
             flex-wrap: wrap !important;
-            gap: 0.3rem !important;
+            gap: 8px !important;
             justify-content: space-between !important;
             direction: rtl !important;
         }
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-            flex: 0 0 calc(50% - 0.2rem) !important;
-            width: calc(50% - 0.2rem) !important;
-            min-width: calc(50% - 0.2rem) !important;
-            max-width: calc(50% - 0.2rem) !important;
+            flex: 0 0 calc(50% - 4px) !important;
+            width: calc(50% - 4px) !important;
+            min-width: calc(50% - 4px) !important;
+            max-width: calc(50% - 4px) !important;
             padding: 0 !important; /* Remove any internal column padding */
         }
 
         /* Smaller buttons on mobile to save vertical space */
         [data-testid="stButton"] button {
-            height: 38px !important;
+            height: 40px !important;
             font-size: 0.85rem !important;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
-        .main-header h1 { font-size: 1.4rem !important; margin-bottom: 0 !important; }
-        .main-header { margin-bottom: 0.2rem !important; }
+        
+        .main-header h1 { 
+            font-size: 1.5rem !important; 
+            margin-bottom: 0 !important; 
+        }
+        .main-header { 
+            margin-bottom: 0.5rem !important; 
+        }
     }
     
     /* Toggle Switch Size Reduction */
     .stCheckbox label {
-        font-size: 0.8rem !important;
-        color: #64748b !important;
-        padding-right: 5px;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+        color: var(--color-text-muted) !important;
+        padding-right: 8px;
     }
     
     /* Removes the padding from stColumns to tightly hug the layout */
@@ -212,19 +268,6 @@ st.markdown(
     
     /* Tightly wrap elements vertically */
     .element-container { margin-bottom: 0 !important; }
-    
-    /* Header Typography Adjustment */
-    .main-header {
-        text-align: center;
-        width: 100%;
-        margin-bottom: 0.2rem;
-    }
-    .main-header h1 {
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #111;
-        margin-bottom: 0.2rem !important;
-    }
     
     /* Small wrapper alignment for minimalist right alignment of toggle */
     .table-toggle-wrapper {
