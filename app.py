@@ -311,14 +311,37 @@ def check_password():
         else:
             st.session_state["password_correct"] = False
 
-    if "password_correct" not in st.session_state:
-        st.text_input("נא להזין סיסמת גישה", type="password", on_change=password_entered, key="password")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("נא להזין סיסמת גישה", type="password", on_change=password_entered, key="password")
+    if st.session_state.get("password_correct", False):
+        return True
+
+    # Inject CSS to center the login screen (ONLY runs when not authenticated)
+    st.markdown(
+        """
+        <style>
+        .block-container {
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: center !important;
+            align-items: center !important;
+            height: 100vh !important;
+            padding-top: 0 !important;
+        }
+        [data-testid="stTextInput"] {
+            width: 320px !important;
+            max-width: 100% !important;
+            text-align: right !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.text_input("נא להזין סיסמת גישה", type="password", on_change=password_entered, key="password")
+    
+    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
         st.error("סיסמה שגויה")
-        return False
-    return True
+        
+    return False
 
 if not check_password():
     st.stop()
