@@ -64,7 +64,7 @@ st.markdown(
 
     /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        padding-top: 2.5rem !important;
+        padding-top: 1.5rem !important;
         padding-bottom: 1rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
@@ -553,7 +553,7 @@ else:
         use_container_width=True,
         hide_index=True,  
         num_rows="fixed",
-        height=500,  # Native Streamlit height constraint forces internal scrolling
+        height=400,  # Reduced to ensure no page scroll on 100% zoom
         key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
     )
 
