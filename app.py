@@ -45,12 +45,7 @@ st.markdown(
         --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Base Styling & 100vh Viewport Lock */
-    html, body, [class*="stApp"] {
-        height: 100vh !important;
-        overflow: hidden !important;
-    }
-    
+    /* Base Styling */
     body {
         font-family: 'Assistant', sans-serif !important;
         background-color: var(--color-bg-main) !important;
@@ -67,35 +62,14 @@ st.markdown(
         display: none !important;
     }
 
-    /* Single-Screen Setup: Make main container a flex column */
+    /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        height: 100vh !important;
-        display: flex !important;
-        flex-direction: column !important;
         padding-top: 2.5rem !important;
-        padding-bottom: 0rem !important;
+        padding-bottom: 1rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
         max-width: 100% !important;
         direction: rtl !important;
-        overflow: hidden !important;
-    }
-    
-    /* Ensure the internal Streamlit vertical block acts as a flex column */
-    .block-container > div[data-testid="stVerticalBlock"] {
-        display: flex !important;
-        flex-direction: column !important;
-        height: 100% !important;
-        max-height: 100% !important;
-        overflow: hidden !important;
-    }
-    
-    /* Ensure the table wrapper scrolls internally and fills available space */
-    div.element-container:has([data-testid="stDataEditor"]), div.element-container:has([data-testid="stDataFrame"]) {
-        flex-grow: 1 !important;
-        overflow-y: auto !important;
-        min-height: 0 !important;
-        margin-bottom: 5px !important;
     }
 
     /* Typography Directions */
@@ -194,7 +168,6 @@ st.markdown(
         direction: rtl !important;
         text-align: right !important;
         transition: var(--transition);
-        height: 100% !important; /* Crucial for internal scrollbars */
     }
     
     [data-testid="stDataFrame"]:hover, [data-testid="stDataEditor"]:hover {
