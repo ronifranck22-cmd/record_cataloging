@@ -135,20 +135,26 @@ st.markdown(
         border-color: #fca5a5 !important;
     }
 
-    /* Button Grid (Web) - Advanced Flexbox Layout */
+    /* Button Grid (Web) - Unified Tight Toolbar Layout */
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
         display: flex !important;
-        flex-direction: row !important;
-        justify-content: flex-start !important;
-        direction: rtl !important;
+        flex-direction: row-reverse !important; /* RTL Support */
+        justify-content: flex-start !important; /* Group tightly to the right */
         gap: 12px !important;
         padding-bottom: 0px;
     }
+    
     div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-        flex: 0 0 140px !important;    /* Force exact width, no stretching */
-        width: 140px !important;       
-        min-width: 140px !important;
-        max-width: 140px !important;
+        flex: 0 0 auto !important;    /* No stretching */
+        width: auto !important;       
+        min-width: 0 !important;
+        max-width: none !important;
+        padding: 0 !important; /* Remove residual column padding */
+    }
+    
+    /* Ensure buttons maintain uniform size and Corporate Blue aesthetic */
+    div:has(> #action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
+        width: 140px !important;
     }
 
     /* Clean White Table Background + Surface Shadows */
@@ -211,45 +217,45 @@ st.markdown(
     }
 
     /* Mobile Responsive Optimizations */
-    @media (max-width: 768px) {
+    @media (max-width: 640px) {
         .block-container {
-            padding-top: 1.5rem !important;
+            padding-top: 1rem !important;
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
             padding-bottom: 1rem !important;
         }
         
-        /* Modifying the Button Grid specifically for mobile */
+        /* Force Mobile 2x2 Grid Layout */
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important; /* CRITICAL: Override Streamlit's native vertical stack on mobile */
-            flex-wrap: wrap !important;
+            display: grid !important;
+            grid-template-columns: repeat(2, 1fr) !important;
             gap: 8px !important;
-            justify-content: space-between !important;
             direction: rtl !important;
         }
         div:has(> #action-buttons-anchor) + div.element-container [data-testid="column"] {
-            flex: 0 0 calc(50% - 4px) !important;
-            width: calc(50% - 4px) !important;
-            min-width: calc(50% - 4px) !important;
-            max-width: calc(50% - 4px) !important;
-            padding: 0 !important; /* Remove any internal column padding */
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            flex: none !important;
+            padding: 0 !important;
         }
 
-        /* Smaller buttons on mobile to save vertical space */
-        [data-testid="stButton"] button {
+        /* Responsive buttons for the grid */
+        div:has(> #action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
+            width: 100% !important;
             height: 40px !important;
             font-size: 0.85rem !important;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
         
+        /* Height Reduction: Minimize margins to bring table above the fold */
         .main-header h1 { 
             font-size: 1.5rem !important; 
             margin-bottom: 0 !important; 
         }
         .main-header { 
-            margin-bottom: 0.5rem !important; 
+            margin-bottom: 0.2rem !important; 
         }
     }
     
