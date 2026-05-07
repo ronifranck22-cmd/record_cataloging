@@ -57,6 +57,7 @@ st.markdown(
     }
 
     /* Hide Unwanted Streamlit Elements safely */
+    header { display: none !important; }
     footer { display: none !important; }
     [class^="viewerBadge"], [data-testid="stActionElements"], [data-testid="MainMenu"], .stAppDeployButton {
         display: none !important;
