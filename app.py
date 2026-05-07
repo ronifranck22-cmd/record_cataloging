@@ -56,8 +56,8 @@ st.markdown(
         background-color: var(--color-bg-main) !important;
     }
 
-    /* Hide Unwanted Streamlit Elements safely */
-    header { display: none !important; }
+    /* Hide Unwanted Streamlit Elements safely, but keep Header for sidebar toggle */
+    header { background-color: transparent !important; box-shadow: none !important; }
     footer { display: none !important; }
     [class^="viewerBadge"], [data-testid="stActionElements"], [data-testid="MainMenu"], .stAppDeployButton {
         display: none !important;
