@@ -336,10 +336,10 @@ def check_password():
         unsafe_allow_html=True
     )
 
-    st.text_input("נא להזין סיסמת גישה", type="password", on_change=password_entered, key="password")
+    st.text_input("הזינו סיסמא", type="password", on_change=password_entered, key="password")
     
     if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-        st.error("סיסמה שגויה")
+        st.error("סיסמא שגויה, נסו שוב")
         
     return False
 
