@@ -64,8 +64,8 @@ st.markdown(
 
     /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
         max-width: 100% !important;
@@ -84,10 +84,10 @@ st.markdown(
     .main-header {
         text-align: center;
         width: 100%;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
     }
     .main-header h1 {
-        font-size: 2rem;
+        font-size: 1.75rem;
         font-weight: 800;
         color: var(--color-primary);
         margin-bottom: 0 !important;
@@ -102,7 +102,7 @@ st.markdown(
         background-color: var(--color-bg-surface) !important; 
         color: var(--color-text-main) !important;            
         border: 1px solid var(--color-border) !important;
-        height: 44px !important;
+        height: 38px !important;
         width: 100% !important;
         box-shadow: var(--shadow-sm) !important;
         transition: var(--transition) !important;
@@ -146,7 +146,7 @@ st.markdown(
         flex-direction: row !important; /* Keep as row because direction: rtl handles right-to-left naturally */
         justify-content: flex-start !important; /* Group tightly to the right (RTL start) */
         flex-wrap: wrap !important;
-        gap: 12px !important;
+        gap: 8px !important;
         padding-bottom: 0px;
     }
     
@@ -166,10 +166,10 @@ st.markdown(
     [data-testid="stDataFrame"], [data-testid="stDataEditor"], [data-testid="stTable"] {
         background-color: var(--color-bg-surface) !important; 
         border-radius: var(--radius-lg);
-        padding: 0.5rem;
+        padding: 0.3rem;
         border: 1px solid var(--color-border);
         box-shadow: var(--shadow-md);
-        margin-top: 5px;
+        margin-top: 0px;
         direction: rtl !important;
         text-align: right !important;
         transition: var(--transition);
@@ -290,8 +290,8 @@ st.markdown(
     .table-toggle-wrapper {
         display: flex;
         justify-content: flex-end; /* RTL: right */
-        padding-top: 5px;
-        padding-bottom: 5px;
+        padding-top: 0px;
+        padding-bottom: 0px;
     }
     </style>
     """,
@@ -522,7 +522,7 @@ show_box = st.checkbox("הצג עמודת קופסא", value=False)
 st.markdown('</div>', unsafe_allow_html=True)
 
 # Display Sub-Count neatly above table
-st.markdown(f'<div style="text-align: right; margin-top:-5px; margin-bottom:5px;"><p style="font-size:0.8rem; color: #64748b;font-weight:600;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div style="text-align: right; margin-top:-5px; margin-bottom:0px;"><p style="font-size:0.8rem; color: #64748b;font-weight:600;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Minimalist Table Interface (index hidden)
@@ -553,7 +553,7 @@ else:
         use_container_width=True,
         hide_index=True,  
         num_rows="fixed",
-        height=400,  # Reduced to ensure no page scroll on 100% zoom
+        height=360,  # Reduced heavily to ensure no page scroll on 100% zoom
         key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
     )
 
