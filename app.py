@@ -318,18 +318,18 @@ def check_password():
     st.markdown(
         """
         <style>
-        .block-container {
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: center !important;
-            align-items: center !important;
-            height: 100vh !important;
-            padding-top: 0 !important;
-        }
+        /* Push the password input down and center it horizontally safely */
         [data-testid="stTextInput"] {
-            width: 320px !important;
-            max-width: 100% !important;
+            margin-top: 35vh !important;
+            margin-left: auto !important;
+            margin-right: auto !important;
+            width: 350px !important;
+            max-width: 90% !important;
+        }
+        /* Ensure the label is visible and right-aligned */
+        [data-testid="stTextInput"] label {
             text-align: right !important;
+            display: block !important;
         }
         </style>
         """,
