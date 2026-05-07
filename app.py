@@ -7,6 +7,7 @@ Run locally:
 
 import streamlit as st
 import pandas as pd
+import time
 
 from db_client import get_db
 import record_store
@@ -506,7 +507,51 @@ def delete_record_dialog():
 
 @st.dialog("עדכון תקליט")
 def update_record_dialog():
-    st.info("כלי זה מיועד לעדכון מהיר בעתיד. קיימת עריכה ישירה בטבלה.")
+    if df.empty:
+        st.warning("אין נתונים במסד.")
+        return
+        
+    update_options = {
+        f"{row['artist']} — {row['name']} (קופסא {row['box']})": row
+        for _, row in df.iterrows()
+    }
+    
+    selected_key = st.selectbox("חפש ובחר רשומה לעדכון:", list(update_options.keys()))
+    selected_record = update_options[selected_key]
+    
+    with st.form("update_form"):
+        st.markdown("<p style='font-size: 0.85rem; color: var(--color-text-muted);'>שנה את השדות הרצויים ולחץ על אישור לשמירה.</p>", unsafe_allow_html=True)
+        
+        updated_artist = st.text_input("אמן *", value=selected_record.get("artist", ""))
+        updated_name = st.text_input("שם התקליט *", value=selected_record.get("name", ""))
+        updated_notes = st.text_input("הערות נוספות", value=selected_record.get("notes", ""))
+        
+        col_box, col_letter = st.columns(2)
+        with col_box:
+            updated_box = st.number_input("קופסא", min_value=1, step=1, value=int(selected_record.get("box", 1)))
+        with col_letter:
+            updated_letter = st.text_input("אות (אופציונלי)", max_chars=1, value=selected_record.get("id_letter", ""))
+            
+        submitted = st.form_submit_button("אישור", type="primary", use_container_width=True)
+        if submitted:
+            if not updated_artist or not updated_name:
+                st.error("אנא מלא את השדות החובה (אמן, שם התקליט).")
+            else:
+                changes = {
+                    "artist": updated_artist.strip(),
+                    "name": updated_name.strip(),
+                    "notes": updated_notes.strip(),
+                    "box": int(updated_box),
+                }
+                # Only update id_letter if explicitly provided
+                if updated_letter.strip():
+                     changes["id_letter"] = updated_letter.strip()
+                     
+                record_store.update(db, selected_record["id"], changes)
+                st.success("הרשומה עודכנה בהצלחה!")
+                time.sleep(0.8)
+                load_data()
+                st.rerun()
 
 @st.dialog("העלאת קובץ")
 def upload_csv_dialog():
