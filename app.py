@@ -45,7 +45,12 @@ st.markdown(
         --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Base Styling */
+    /* Base Styling & 100vh Viewport Lock */
+    html, body, [class*="stApp"] {
+        height: 100vh !important;
+        overflow: hidden !important;
+    }
+    
     body {
         font-family: 'Assistant', sans-serif !important;
         background-color: var(--color-bg-main) !important;
@@ -62,14 +67,35 @@ st.markdown(
         display: none !important;
     }
 
-    /* Maximize Density, adjust top padding to prevent header cut-off */
+    /* Single-Screen Setup: Make main container a flex column */
     .block-container {
+        height: 100vh !important;
+        display: flex !important;
+        flex-direction: column !important;
         padding-top: 2.5rem !important;
-        padding-bottom: 1rem !important;
+        padding-bottom: 0rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
         max-width: 100% !important;
         direction: rtl !important;
+        overflow: hidden !important;
+    }
+    
+    /* Ensure the internal Streamlit vertical block acts as a flex column */
+    .block-container > div[data-testid="stVerticalBlock"] {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        overflow: hidden !important;
+    }
+    
+    /* Ensure the table wrapper scrolls internally and fills available space */
+    div.element-container:has([data-testid="stDataEditor"]), div.element-container:has([data-testid="stDataFrame"]) {
+        flex-grow: 1 !important;
+        overflow-y: auto !important;
+        min-height: 0 !important;
+        margin-bottom: 5px !important;
     }
 
     /* Typography Directions */
@@ -135,26 +161,26 @@ st.markdown(
         border-color: #fca5a5 !important;
     }
 
-    /* Button Grid (Web) - Unified Tight Toolbar Layout */
-    div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
+    /* Button Toolbar (Web) - Robust Flexbox Layout */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
         display: flex !important;
         flex-direction: row-reverse !important; /* RTL Support */
         justify-content: flex-start !important; /* Group tightly to the right */
+        flex-wrap: wrap !important;
         gap: 12px !important;
         padding-bottom: 0px;
     }
     
-    div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="column"] {
-        flex: 0 0 auto !important;    /* No stretching */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container {
         width: auto !important;       
-        min-width: 0 !important;
-        max-width: none !important;
-        padding: 0 !important; /* Remove residual column padding */
+        flex: 0 0 auto !important;
+        padding: 0 !important;
     }
     
     /* Ensure buttons maintain uniform size and Corporate Blue aesthetic */
-    div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) [data-testid="stButton"] button {
         width: 140px !important;
+        min-width: 140px !important;
     }
 
     /* Clean White Table Background + Surface Shadows */
@@ -168,6 +194,7 @@ st.markdown(
         direction: rtl !important;
         text-align: right !important;
         transition: var(--transition);
+        height: 100% !important; /* Crucial for internal scrollbars */
     }
     
     [data-testid="stDataFrame"]:hover, [data-testid="stDataEditor"]:hover {
@@ -222,17 +249,18 @@ st.markdown(
             padding-top: 1rem !important;
             padding-left: 0.5rem !important;
             padding-right: 0.5rem !important;
-            padding-bottom: 1rem !important;
+            padding-bottom: 0.5rem !important;
         }
         
         /* Force Mobile 2x2 Grid Layout */
-        div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stHorizontalBlock"] {
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
             display: grid !important;
             grid-template-columns: repeat(2, 1fr) !important;
             gap: 8px !important;
             direction: rtl !important;
         }
-        div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="column"] {
+        
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container {
             width: 100% !important;
             min-width: 0 !important;
             max-width: none !important;
@@ -241,10 +269,11 @@ st.markdown(
         }
 
         /* Responsive buttons for the grid */
-        div.element-container:has(#action-buttons-anchor) + div.element-container [data-testid="stButton"] button {
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) [data-testid="stButton"] button {
             width: 100% !important;
             height: 40px !important;
             font-size: 0.85rem !important;
+            min-width: 0 !important;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
@@ -493,19 +522,15 @@ st.sidebar.markdown(
 
 st.markdown('<div class="main-header"><h1>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
 
-# 4-Button Row Hook (Centered Toolset Width)
-st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
-btn_c1, btn_c2, btn_c3, btn_c4 = st.columns(4)
-with btn_c1:
+# 4-Button Row Hook (Flexbox Container)
+with st.container():
+    st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
     if st.button("הוסף רשומה"):
         add_record_dialog()
-with btn_c2:
     if st.button("מחק רשומה"):
         delete_record_dialog()
-with btn_c3:
     if st.button("עדכון רשומה"):
         update_record_dialog()
-with btn_c4:
     if st.button("העלאת קובץ"):
         upload_csv_dialog()
 
