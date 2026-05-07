@@ -136,6 +136,11 @@ st.markdown(
     }
 
     /* Button Toolbar (Web) - Robust Flexbox Layout */
+    /* Hide the anchor container so it doesn't disrupt Flexbox or Grid packing */
+    div.element-container:has(#action-buttons-anchor) {
+        display: none !important;
+    }
+    
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
         display: flex !important;
         flex-direction: row !important; /* Keep as row because direction: rtl handles right-to-left naturally */
