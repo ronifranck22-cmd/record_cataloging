@@ -138,8 +138,8 @@ st.markdown(
     /* Button Toolbar (Web) - Robust Flexbox Layout */
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
         display: flex !important;
-        flex-direction: row-reverse !important; /* RTL Support */
-        justify-content: flex-start !important; /* Group tightly to the right */
+        flex-direction: row !important; /* Keep as row because direction: rtl handles right-to-left naturally */
+        justify-content: flex-start !important; /* Group tightly to the right (RTL start) */
         flex-wrap: wrap !important;
         gap: 12px !important;
         padding-bottom: 0px;
