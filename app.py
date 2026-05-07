@@ -168,6 +168,8 @@ st.markdown(
         direction: rtl !important;
         text-align: right !important;
         transition: var(--transition);
+        max-height: 55vh !important; /* SAFE SCROLLING: Limits table height to prevent full-page scroll */
+        overflow-y: auto !important;
     }
     
     [data-testid="stDataFrame"]:hover, [data-testid="stDataEditor"]:hover {
@@ -315,52 +317,6 @@ def check_password():
 
 if not check_password():
     st.stop()
-
-# ---------------------------------------------------------------------------
-# Viewport Lock (Injected ONLY after login to protect password screen layout)
-# ---------------------------------------------------------------------------
-st.markdown(
-    """
-    <style>
-    /* Absolute Single-Screen Viewport Lock */
-    html, body, [class*="stApp"] {
-        height: 100vh !important;
-        overflow: hidden !important;
-    }
-    
-    /* Single-Screen Setup: Make main container a flex column */
-    .block-container {
-        height: 100vh !important;
-        display: flex !important;
-        flex-direction: column !important;
-        overflow: hidden !important;
-    }
-    
-    /* Ensure the internal Streamlit vertical block acts as a flex column */
-    .block-container > div[data-testid="stVerticalBlock"] {
-        display: flex !important;
-        flex-direction: column !important;
-        height: 100% !important;
-        max-height: 100% !important;
-        overflow: hidden !important;
-    }
-    
-    /* Ensure the table wrapper scrolls internally and fills available space */
-    div.element-container:has([data-testid="stDataEditor"]), div.element-container:has([data-testid="stDataFrame"]) {
-        flex-grow: 1 !important;
-        overflow-y: auto !important;
-        min-height: 0 !important;
-        margin-bottom: 5px !important;
-    }
-    
-    /* Crucial for internal scrollbars in Streamlit's Glide Data Grid */
-    [data-testid="stDataFrame"], [data-testid="stDataEditor"], [data-testid="stTable"] {
-        height: 100% !important; 
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
 
 # ---------------------------------------------------------------------------
 # Init Form State Variables if they don't exist
