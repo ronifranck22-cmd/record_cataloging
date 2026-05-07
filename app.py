@@ -553,6 +553,7 @@ else:
         use_container_width=True,
         hide_index=True,  
         num_rows="fixed",
+        height=500,  # Native Streamlit height constraint forces internal scrolling
         key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
     )
 
