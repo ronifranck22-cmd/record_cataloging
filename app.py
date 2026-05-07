@@ -28,18 +28,18 @@ st.markdown(
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap');
     @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
-    /* CSS Variables for Warm Pastel Theme */
+    /* CSS Variables for Cool Pastel Blue Theme */
     :root {
-        --color-bg-main: #FFF6F0;        /* Warm cream/ivory */
+        --color-bg-main: #F4F8FB;        /* Soft cool white */
         --color-bg-surface: #FFFFFF;     /* Pure White */
-        --color-primary: #FF9A9E;        /* Pastel Coral/Pink */
-        --color-primary-hover: #FF8186;  /* Deeper coral */
-        --color-text-main: #4A4443;      /* Warm charcoal gray */
-        --color-text-muted: #9E9391;     /* Warm muted taupe */
-        --color-border: #F4EAE3;         /* Soft peachy-gray */
-        --shadow-sm: 0 1px 2px 0 rgba(138, 115, 115, 0.05);
-        --shadow-md: 0 4px 6px -1px rgba(138, 115, 115, 0.1), 0 2px 4px -1px rgba(138, 115, 115, 0.06);
-        --shadow-hover: 0 10px 15px -3px rgba(138, 115, 115, 0.15), 0 4px 6px -2px rgba(138, 115, 115, 0.1);
+        --color-primary: #9DBCE3;        /* Pastel Light Blue */
+        --color-primary-hover: #8AADD8;  /* Deeper pastel blue */
+        --color-text-main: #3E4B59;      /* Cool charcoal gray */
+        --color-text-muted: #8292A1;     /* Cool muted gray */
+        --color-border: #E2EAF1;         /* Soft blue-gray */
+        --shadow-sm: 0 1px 2px 0 rgba(115, 130, 140, 0.05);
+        --shadow-md: 0 4px 6px -1px rgba(115, 130, 140, 0.1), 0 2px 4px -1px rgba(115, 130, 140, 0.06);
+        --shadow-hover: 0 10px 15px -3px rgba(115, 130, 140, 0.15), 0 4px 6px -2px rgba(115, 130, 140, 0.1);
         --radius-md: 16px;
         --radius-lg: 16px;
         --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -115,7 +115,7 @@ st.markdown(
         box-shadow: var(--shadow-hover) !important; 
         border-color: var(--color-primary) !important;
         color: var(--color-primary) !important;
-        background-color: #FFF0E6 !important; /* Soft peach on hover */
+        background-color: #EBF4FA !important; /* Soft pastel blue on hover */
     }
     
     [data-testid="stButton"] button:active {
