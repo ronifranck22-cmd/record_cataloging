@@ -163,6 +163,27 @@ st.markdown(
         width: 140px !important;
         min-width: 140px !important;
     }
+    
+    /* Square Download Button Styling */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) [data-testid="stDownloadButton"] button {
+        width: 38px !important;
+        min-width: 38px !important;
+        height: 38px !important;
+        padding: 0 !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    /* Force Checkbox to a new line on Desktop */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stCheckbox"]) {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        display: flex;
+        justify-content: flex-end; /* right align */
+        margin-top: 4px;
+    }
 
     /* Clean White Table Background + Surface Shadows */
     [data-testid="stDataFrame"], [data-testid="stDataEditor"], [data-testid="stTable"] {
@@ -259,6 +280,16 @@ st.markdown(
             height: 40px !important;
             font-size: 0.85rem !important;
             min-width: 0 !important;
+        }
+        
+        /* Mobile styling for the 3rd row elements (Download & Checkbox) */
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stDownloadButton"]) {
+            justify-self: end !important; /* Push square button toward the center */
+        }
+        
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stCheckbox"]) {
+            justify-self: start !important; /* Push checkbox toward the center */
+            margin-top: 4px;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
@@ -574,7 +605,7 @@ st.sidebar.markdown(
 
 st.markdown('<div class="main-header"><h1>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
 
-# 4-Button Row Hook (Flexbox Container)
+# Unified Action Toolbar (Flexbox Container)
 with st.container():
     st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
     if st.button("הוסף רשומה"):
@@ -585,11 +616,16 @@ with st.container():
         update_record_dialog()
     if st.button("העלאת קובץ"):
         upload_csv_dialog()
-
-# Minimalist Toggle (Positioned Right, tightly placed before the grid)
-st.markdown('<div class="table-toggle-wrapper">', unsafe_allow_html=True)
-show_box = st.checkbox("הצג עמודת קופסא", value=False)
-st.markdown('</div>', unsafe_allow_html=True)
+        
+    csv_data = df.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        label="⬇️",
+        data=csv_data,
+        file_name="records_backup.csv",
+        mime="text/csv"
+    )
+    
+    show_box = st.checkbox("הצג עמודת קופסא", value=False)
 
 # Display Sub-Count neatly above table
 st.markdown(f'<div style="text-align: right; margin-top:-5px; margin-bottom:0px;"><p style="font-size:0.8rem; color: #64748b;font-weight:600;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p></div>', unsafe_allow_html=True)
