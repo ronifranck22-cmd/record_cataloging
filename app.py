@@ -540,16 +540,18 @@ def draw_record_dialog():
         st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
 
     record = st.session_state["drawn_record"]
-    artist = record.get("artist", "—")
-    name   = record.get("name", "—")
+    # Sanitize: replace literal "None" / actual None with empty string
+    raw_artist = record.get("artist") or ""
+    raw_name   = record.get("name")   or ""
+    artist = raw_artist if str(raw_artist).lower() not in ("", "none") else "לא ידוע"
+    name   = raw_name   if str(raw_name).lower()   not in ("", "none") else "לא ידוע"
     spin_key = st.session_state["spin_key"]
 
     vinyl_src = f"data:image/png;base64,{VINYL_BASE64}" if VINYL_BASE64 else ""
 
     # Phase 1: vinyl decelerates (fast → slow → stop) over 4s.
-    # Phase 2: text fades in on the center label after the spin ends.
-    # spin_key is embedded in the element ID so changing it forces a
-    # fresh DOM node → animation restarts cleanly on "Spin Again".
+    # Phase 2: text fades in on the black grooved area after the spin ends.
+    # spin_key changes → new DOM ID → browser restarts animation from 0.
     st.markdown(
         f"""
         <style>
@@ -557,56 +559,64 @@ def draw_record_dialog():
             0%   {{ transform: rotate(0deg); }}
             100% {{ transform: rotate(1080deg); }}
         }}
-        @keyframes fadeInLabel-{spin_key} {{
-            from {{ opacity: 0; transform: translate(-50%, -50%) scale(0.95); }}
-            to   {{ opacity: 1; transform: translate(-50%, -50%) scale(1);    }}
+        @keyframes fadeInGroove-{spin_key} {{
+            from {{ opacity: 0; }}
+            to   {{ opacity: 1; }}
         }}
         #vwrap-{spin_key} {{
             position: relative;
-            width: 200px;
-            height: 200px;
+            width: 220px;
+            height: 220px;
             margin: 1.2rem auto 0.8rem;
         }}
         #vwrap-{spin_key} .v-img {{
-            width: 200px;
-            height: 200px;
+            width: 220px;
+            height: 220px;
             border-radius: 50%;
             display: block;
             animation: vinylDecel-{spin_key} 4s cubic-bezier(0.05, 0, 0.3, 1) forwards;
         }}
-        /* Text sits absolutely centred on the label circle */
-        #vwrap-{spin_key} .v-label {{
+        /* Top groove text — album name */
+        #vwrap-{spin_key} .v-top {{
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.95);
-            width: 84px;          /* ≈ label diameter */
+            top: 26px;
+            left: 0;
+            right: 0;
             text-align: center;
             opacity: 0;
-            animation: fadeInLabel-{spin_key} 0.8s ease-out forwards;
-            animation-delay: 4s;  /* starts exactly when spin ends */
+            animation: fadeInGroove-{spin_key} 0.9s ease-out forwards;
+            animation-delay: 4s;
             pointer-events: none;
-        }}
-        #vwrap-{spin_key} .v-name {{
-            font-size: 0.52rem;
+            font-size: 0.72rem;
             font-weight: 800;
-            color: #1a1a1a;
-            line-height: 1.25;
-            margin-bottom: 3px;
+            color: #ffffff;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+            padding: 0 36px;
+            line-height: 1.3;
         }}
-        #vwrap-{spin_key} .v-artist {{
-            font-size: 0.48rem;
+        /* Bottom groove text — artist name */
+        #vwrap-{spin_key} .v-bottom {{
+            position: absolute;
+            bottom: 26px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            opacity: 0;
+            animation: fadeInGroove-{spin_key} 0.9s ease-out forwards;
+            animation-delay: 4.2s;
+            pointer-events: none;
+            font-size: 0.65rem;
             font-weight: 600;
-            color: #444;
-            line-height: 1.2;
+            color: #e0e0e0;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+            padding: 0 36px;
+            line-height: 1.3;
         }}
         </style>
         <div id="vwrap-{spin_key}">
             <img class="v-img" src="{vinyl_src}" alt="vinyl" />
-            <div class="v-label">
-                <div class="v-name">{name}</div>
-                <div class="v-artist">{artist}</div>
-            </div>
+            <div class="v-top">{name}</div>
+            <div class="v-bottom">{artist}</div>
         </div>
         """,
         unsafe_allow_html=True,
