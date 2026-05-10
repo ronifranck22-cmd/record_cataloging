@@ -29,7 +29,7 @@ LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 10vh; margin-bottom: -28vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
 # Header Logos (Responsive)
-LOGO_HTML_DESKTOP = f'<div class="desktop-logo-container"><img src="data:image/png;base64,{LOGO_BASE64}" style="height: 65px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_DESKTOP_LARGE = f'<div class="desktop-logo-large"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 288px;"></div>' if LOGO_BASE64 else ""
 LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
 
 # ---------------------------------------------------------------------------
@@ -116,22 +116,12 @@ st.markdown(
         letter-spacing: -0.02em;
     }
 
-    /* Logo Positioning Logic */
-    .desktop-logo-container {
-        position: fixed;
-        top: 0.5rem;
-        left: 3.5rem; /* Adjacent to sidebar toggle */
-        z-index: 999999;
-        display: block;
-    }
+    /* Logo Visibility & Mobile Inline */
     .mobile-logo-inline {
         display: none;
     }
 
     @media (max-width: 640px) {
-        .desktop-logo-container {
-            display: none !important;
-        }
         .mobile-logo-inline {
             display: inline-block !important;
         }
@@ -186,13 +176,22 @@ st.markdown(
     
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
         display: flex !important;
-        flex-direction: row !important; /* Keep as row because direction: rtl handles right-to-left naturally */
-        justify-content: flex-start !important; /* Group tightly to the right (RTL start) */
+        flex-direction: row !important; /* Row for horizontal header */
+        justify-content: space-between !important; /* Logo-Left, Title-Center, Buttons-Right */
+        align-items: center !important;
         flex-wrap: wrap !important;
         gap: 8px !important;
         padding-bottom: 0px;
+        direction: ltr !important; /* LTR container to place Logo on left and Buttons on right easily */
     }
     
+    /* Center the title specifically in the flex row */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has(.main-header) {
+        flex: 1 !important;
+        display: flex;
+        justify-content: center;
+    }
+
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container {
         width: auto !important;       
         flex: 0 0 auto !important;
@@ -203,6 +202,12 @@ st.markdown(
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) [data-testid="stButton"] button {
         width: 140px !important;
         min-width: 140px !important;
+    }
+    
+    /* Desktop Logo Large (Left Group) */
+    .desktop-logo-large {
+        display: block;
+        margin-bottom: 0px;
     }
     
     /* Square Download Button Styling */
@@ -217,13 +222,33 @@ st.markdown(
         justify-content: center !important;
     }
     
-    /* Force Checkbox to a new line on Desktop */
+    /* Ensure Buttons on Desktop align right inside the LTR flex container */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stButton"]),
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stDownloadButton"]) {
+        direction: rtl !important; /* Keep internal button text/icons RTL */
+    }
+
+    /* Checkbox stacking logic on Desktop */
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stCheckbox"]) {
-        width: 100% !important;
-        flex: 1 1 100% !important;
+        width: 288px !important; /* Match logo width */
+        flex: 0 0 288px !important;
         display: flex;
-        justify-content: flex-end; /* right align */
-        margin-top: 4px;
+        justify-content: flex-start; /* Align with left-side logo */
+        margin-top: -10px;
+        order: 10; /* Force it to appear "under" the logo conceptually if flex wraps, but we'll use a better trick */
+    }
+
+    /* Force the checkbox to the next row on desktop under the logo */
+    @media (min-width: 641px) {
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stCheckbox"]) {
+            position: absolute;
+            top: 75px;
+            left: 0;
+        }
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
+            position: relative;
+            padding-bottom: 25px !important;
+        }
     }
 
     /* Clean White Table Background + Surface Shadows */
@@ -647,15 +672,19 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-if LOGO_HTML_DESKTOP:
-    st.markdown(LOGO_HTML_DESKTOP, unsafe_allow_html=True)
-
-header_html = f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>'
-st.markdown(header_html, unsafe_allow_html=True)
-
-# Unified Action Toolbar (Flexbox Container)
+# Unified Header & Toolbar Container
 with st.container():
     st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
+    
+    # 1. Desktop Large Logo (Left)
+    if LOGO_HTML_DESKTOP_LARGE:
+        st.markdown(LOGO_HTML_DESKTOP_LARGE, unsafe_allow_html=True)
+    
+    # 2. Main Title (Center)
+    header_html = f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>'
+    st.markdown(header_html, unsafe_allow_html=True)
+    
+    # 3. Action Buttons (Right)
     if st.button("הוסף רשומה"):
         add_record_dialog()
     if st.button("מחק רשומה"):
@@ -673,6 +702,7 @@ with st.container():
         mime="text/csv"
     )
     
+    # 4. Checkbox (Stacked under logo on desktop)
     show_box = st.checkbox("הצג עמודת קופסא", value=False)
 
 # Display Sub-Count neatly above table
