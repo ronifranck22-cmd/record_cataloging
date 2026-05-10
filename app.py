@@ -29,7 +29,7 @@ LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 10vh; margin-bottom: -28vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
 # Header Logos (Responsive)
-LOGO_HTML_DESKTOP_LARGE = f'<div class="desktop-logo-large"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 288px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="height: 55px;"></div>' if LOGO_BASE64 else ""
 LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
 
 # ---------------------------------------------------------------------------
@@ -116,12 +116,36 @@ st.markdown(
         letter-spacing: -0.02em;
     }
 
+    /* Brand Row (Desktop) */
+    div.element-container:has(#brand-row-anchor) { display: none !important; }
+    
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: center !important;
+        align-items: center !important;
+        position: relative !important;
+        width: 100% !important;
+        margin-bottom: 5px !important;
+    }
+    
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) .brand-logo-desktop {
+        position: absolute !important;
+        right: 0 !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        display: block;
+    }
+
     /* Logo Visibility & Mobile Inline */
     .mobile-logo-inline {
         display: none;
     }
 
     @media (max-width: 640px) {
+        div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) .brand-logo-desktop {
+            display: none !important;
+        }
         .mobile-logo-inline {
             display: inline-block !important;
         }
@@ -176,22 +200,15 @@ st.markdown(
     
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
         display: flex !important;
-        flex-direction: row !important; /* Row for horizontal header */
-        justify-content: space-between !important; /* Logo-Left, Title-Center, Buttons-Right */
+        flex-direction: row !important; 
+        justify-content: flex-start !important; 
         align-items: center !important;
         flex-wrap: wrap !important;
         gap: 8px !important;
         padding-bottom: 0px;
-        direction: ltr !important; /* LTR container to place Logo on left and Buttons on right easily */
+        direction: rtl !important; /* Standard RTL for action buttons */
     }
     
-    /* Center the title specifically in the flex row */
-    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has(.main-header) {
-        flex: 1 !important;
-        display: flex;
-        justify-content: center;
-    }
-
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container {
         width: auto !important;       
         flex: 0 0 auto !important;
@@ -202,12 +219,6 @@ st.markdown(
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) [data-testid="stButton"] button {
         width: 140px !important;
         min-width: 140px !important;
-    }
-    
-    /* Desktop Logo Large (Left Group) */
-    .desktop-logo-large {
-        display: block;
-        margin-bottom: 0px;
     }
     
     /* Square Download Button Styling */
@@ -222,33 +233,23 @@ st.markdown(
         justify-content: center !important;
     }
     
-    /* Ensure Buttons on Desktop align right inside the LTR flex container */
-    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stButton"]),
-    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stDownloadButton"]) {
-        direction: rtl !important; /* Keep internal button text/icons RTL */
+    /* Table Controls Row (Page Info + Checkbox) */
+    div.element-container:has(#table-controls-anchor) { display: none !important; }
+    
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #table-controls-anchor) {
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        direction: rtl !important;
+        margin-top: 5px !important;
+        margin-bottom: 2px !important;
     }
-
-    /* Checkbox stacking logic on Desktop */
-    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stCheckbox"]) {
-        width: 288px !important; /* Match logo width */
-        flex: 0 0 288px !important;
-        display: flex;
-        justify-content: flex-start; /* Align with left-side logo */
-        margin-top: -10px;
-        order: 10; /* Force it to appear "under" the logo conceptually if flex wraps, but we'll use a better trick */
-    }
-
-    /* Force the checkbox to the next row on desktop under the logo */
-    @media (min-width: 641px) {
-        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stCheckbox"]) {
-            position: absolute;
-            top: 75px;
-            left: 0;
-        }
-        div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
-            position: relative;
-            padding-bottom: 25px !important;
-        }
+    
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #table-controls-anchor) > div.element-container {
+        width: auto !important;
+        flex: 0 0 auto !important;
     }
 
     /* Clean White Table Background + Surface Shadows */
@@ -262,7 +263,7 @@ st.markdown(
         direction: rtl !important;
         text-align: right !important;
         transition: var(--transition);
-        max-height: 55vh !important; /* SAFE SCROLLING: Limits table height to prevent full-page scroll */
+        max-height: 52vh !important; /* Slightly reduced to account for 4th row */
         overflow-y: auto !important;
     }
     
@@ -672,19 +673,19 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Unified Header & Toolbar Container
+# Row 1: Brand (Title centered, Logo far right)
+with st.container():
+    st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
+    if LOGO_HTML_DESKTOP_BRAND:
+        st.markdown(LOGO_HTML_DESKTOP_BRAND, unsafe_allow_html=True)
+    st.markdown(f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
+
+# Row 2: Spacer
+st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+
+# Row 3: Action Toolbar (The Original 5)
 with st.container():
     st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
-    
-    # 1. Desktop Large Logo (Left)
-    if LOGO_HTML_DESKTOP_LARGE:
-        st.markdown(LOGO_HTML_DESKTOP_LARGE, unsafe_allow_html=True)
-    
-    # 2. Main Title (Center)
-    header_html = f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>'
-    st.markdown(header_html, unsafe_allow_html=True)
-    
-    # 3. Action Buttons (Right)
     if st.button("הוסף רשומה"):
         add_record_dialog()
     if st.button("מחק רשומה"):
@@ -701,8 +702,11 @@ with st.container():
         file_name="records_backup.csv",
         mime="text/csv"
     )
-    
-    # 4. Checkbox (Stacked under logo on desktop)
+
+# Row 4: Data Info & Checkbox (Table Controls Line)
+with st.container():
+    st.markdown('<div id="table-controls-anchor"></div>', unsafe_allow_html=True)
+    st.markdown(f'<p style="font-size:0.8rem; color: #64748b;font-weight:600; margin:0;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p>', unsafe_allow_html=True)
     show_box = st.checkbox("הצג עמודת קופסא", value=False)
 
 # Display Sub-Count neatly above table
