@@ -29,7 +29,7 @@ LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 10vh; margin-bottom: -28vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
 # Header Logos (Responsive)
-LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="height: 55px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 220px;"></div>' if LOGO_BASE64 else ""
 LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
 
 # ---------------------------------------------------------------------------
@@ -109,7 +109,7 @@ st.markdown(
         margin-bottom: 0.2rem;
     }
     .main-header h1 {
-        font-size: 1.75rem;
+        font-size: 2.2rem;
         font-weight: 800;
         color: var(--color-primary);
         margin-bottom: 0 !important;
@@ -710,7 +710,7 @@ with st.container():
     show_box = st.checkbox("הצג עמודת קופסא", value=False)
 
 # Display Sub-Count neatly above table
-st.markdown(f'<div style="text-align: right; margin-top:-5px; margin-bottom:0px;"><p style="font-size:0.8rem; color: #64748b;font-weight:600;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p></div>', unsafe_allow_html=True)
+# Redundant line removed to avoid duplication with Row 4
 
 # ---------------------------------------------------------------------------
 # Minimalist Table Interface (index hidden)
