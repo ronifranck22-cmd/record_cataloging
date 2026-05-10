@@ -104,8 +104,7 @@ st.markdown(
 
     /* Header Typography Adjustment */
     .main-header {
-        text-align: center;
-        width: 100%;
+        text-align: right;
         margin-bottom: 0.2rem;
     }
     .main-header h1 {
@@ -122,18 +121,15 @@ st.markdown(
     div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) {
         display: flex !important;
         flex-direction: row !important;
-        justify-content: center !important;
+        justify-content: flex-start !important; /* RTL: Right */
         align-items: center !important;
-        position: relative !important;
         width: 100% !important;
         margin-bottom: 5px !important;
+        gap: 15px !important;
+        direction: rtl !important;
     }
     
     div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) .brand-logo-desktop {
-        position: absolute !important;
-        right: 0 !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
         display: block;
     }
 
