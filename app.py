@@ -103,10 +103,10 @@ st.markdown(
     }
 
     /* Header Typography Adjustment */
+    /* Header Typography Adjustment */
     .main-header {
         text-align: center;
-        width: 100%;
-        margin-bottom: 0.2rem;
+        margin-bottom: 0;
     }
     .main-header h1 {
         font-size: 2.2rem;
@@ -116,21 +116,32 @@ st.markdown(
         letter-spacing: -0.02em;
     }
 
-    /* Brand Row (Desktop) */
+    /* Brand Row (Desktop Flex) */
     div.element-container:has(#brand-row-anchor) { display: none !important; }
     
-    div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) {
-        position: relative !important;
-        display: block !important;
-        width: 100% !important;
-        margin-bottom: 5px !important;
+    .brand-row-container {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 15px;
+        direction: ltr !important; /* Force LTR for the header row to put logo on the left */
     }
     
     .brand-logo-desktop {
-        position: absolute;
-        right: 0;
-        top: -5px;
-        z-index: 100;
+        flex: 0 0 220px;
+        text-align: left;
+    }
+    
+    .brand-row-center {
+        flex: 1;
+        text-align: center;
+        direction: rtl !important;
+    }
+    
+    .brand-spacer {
+        flex: 0 0 220px;
     }
 
     /* Logo Visibility & Mobile Inline */
@@ -139,7 +150,11 @@ st.markdown(
     }
 
     @media (max-width: 640px) {
-        div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) .brand-logo-desktop {
+        .brand-row-container {
+            display: block !important;
+            text-align: center;
+        }
+        .brand-logo-desktop, .brand-spacer {
             display: none !important;
         }
         .mobile-logo-inline {
@@ -669,12 +684,23 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Row 1: Brand (Title centered, Logo far right)
+# Row 1: Brand (Title centered, Logo on left)
 with st.container():
     st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
-    if LOGO_HTML_DESKTOP_BRAND:
-        st.markdown(LOGO_HTML_DESKTOP_BRAND, unsafe_allow_html=True)
-    st.markdown(f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
+    header_html = f"""
+    <div class="brand-row-container">
+        <div class="brand-logo-desktop">
+            <img src="data:image/png;base64,{LOGO_BASE64}" style="width: 220px;">
+        </div>
+        <div class="brand-row-center">
+            <div class="main-header">
+                <h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1>
+            </div>
+        </div>
+        <div class="brand-spacer"></div>
+    </div>
+    """
+    st.markdown(header_html, unsafe_allow_html=True)
 
 # Row 2: Spacer
 st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
