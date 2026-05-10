@@ -660,27 +660,19 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Row 1: Brand (Title centered, Logo left relative to container)
+# Row 1: Brand (Title centered, Logo left)
 with st.container():
     st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
+    # עמודה ריקה בימין (1), כותרת באמצע (2), לוגו בשמאל (1) - מותאם ל-RTL
+    col_empty, col_title, col_logo = st.columns([1, 2, 1])
     
-    # שימוש ב-Flexbox עם עמודת-דמה (Spacer) כדי למרכז את הכותרת בתוך הקונטיינר
-    header_html = f"""
-    <div style="display: flex; align-items: center; width: 100%; margin: 0; padding: 0;">
-        
-        <div style="flex: 1; min-width: 180px;"></div>
-        
-        <div class="main-header" style="flex: 2; text-align: center; margin: 0; padding: 0;">
-            <h1 style="margin: 0; padding: 0;">{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1>
-        </div>
-        
-        <div style="flex: 1; min-width: 180px; display: flex; justify-content: flex-end; text-align: left;">
-            {LOGO_HTML_HEADER_LEFT}
-        </div>
-        
-    </div>
-    """
-    st.markdown(header_html, unsafe_allow_html=True)
+    with col_logo:
+        # לוגו בשמאל
+        st.markdown(f'<div style="text-align: left; width: 100%;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>', unsafe_allow_html=True) if LOGO_BASE64 else None
+            
+    with col_title:
+        # כותרת במרכז
+        st.markdown('<div class="main-header"><h1>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
 
 # Row 2: Spacer
 st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
