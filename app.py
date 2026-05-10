@@ -549,9 +549,10 @@ def draw_record_dialog():
 
     vinyl_src = f"data:image/png;base64,{VINYL_BASE64}" if VINYL_BASE64 else ""
 
-    # Phase 1: vinyl decelerates (fast → slow → stop) over 4s.
-    # Phase 2: text fades in on the black grooved area after the spin ends.
-    # spin_key changes → new DOM ID → browser restarts animation from 0.
+    # Timing sequence:
+    #   0 → 4s    : vinyl decelerates (cubic-bezier)
+    #   4 → 4.8s  : vinyl fades to 0.3 opacity (ghostly)
+    #   4.8s+     : text fades in as dominant element
     st.markdown(
         f"""
         <style>
@@ -559,9 +560,13 @@ def draw_record_dialog():
             0%   {{ transform: rotate(0deg); }}
             100% {{ transform: rotate(1080deg); }}
         }}
+        @keyframes vinylGhost-{spin_key} {{
+            from {{ opacity: 1; }}
+            to   {{ opacity: 0.25; }}
+        }}
         @keyframes fadeInGroove-{spin_key} {{
-            from {{ opacity: 0; }}
-            to   {{ opacity: 1; }}
+            from {{ opacity: 0; transform: translateY(6px); }}
+            to   {{ opacity: 1; transform: translateY(0);   }}
         }}
         #vwrap-{spin_key} {{
             position: relative;
@@ -574,42 +579,43 @@ def draw_record_dialog():
             height: 220px;
             border-radius: 50%;
             display: block;
-            animation: vinylDecel-{spin_key} 4s cubic-bezier(0.05, 0, 0.3, 1) forwards;
+            /* Two animations: decelerate, then ghost-fade */
+            animation:
+                vinylDecel-{spin_key} 4s  cubic-bezier(0.05, 0, 0.3, 1) forwards,
+                vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
         }}
         /* Top groove text — album name */
         #vwrap-{spin_key} .v-top {{
             position: absolute;
-            top: 26px;
+            top: 20px;
             left: 0;
             right: 0;
             text-align: center;
             opacity: 0;
-            animation: fadeInGroove-{spin_key} 0.9s ease-out forwards;
-            animation-delay: 4s;
+            animation: fadeInGroove-{spin_key} 1s ease-out 4.8s forwards;
             pointer-events: none;
-            font-size: 0.72rem;
-            font-weight: 800;
+            font-size: 1.1rem;
+            font-weight: 900;
             color: #ffffff;
-            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
-            padding: 0 36px;
+            text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+            padding: 0 28px;
             line-height: 1.3;
         }}
         /* Bottom groove text — artist name */
         #vwrap-{spin_key} .v-bottom {{
             position: absolute;
-            bottom: 26px;
+            bottom: 20px;
             left: 0;
             right: 0;
             text-align: center;
             opacity: 0;
-            animation: fadeInGroove-{spin_key} 0.9s ease-out forwards;
-            animation-delay: 4.2s;
+            animation: fadeInGroove-{spin_key} 1s ease-out 5.1s forwards;
             pointer-events: none;
-            font-size: 0.65rem;
-            font-weight: 600;
-            color: #e0e0e0;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
-            padding: 0 36px;
+            font-size: 0.95rem;
+            font-weight: 800;
+            color: #f0f0f0;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+            padding: 0 28px;
             line-height: 1.3;
         }}
         </style>
