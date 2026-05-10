@@ -29,7 +29,7 @@ LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 5vh; margin-bottom: -12vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
 # Header Logos (Responsive)
-LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 220px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>' if LOGO_BASE64 else ""
 LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
 
 # ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ st.markdown(
 
     /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        padding-top: 1.2rem !important;
+        padding-top: 0.7rem !important;
         padding-bottom: 0rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
@@ -109,7 +109,7 @@ st.markdown(
         margin-bottom: 0;
     }
     .main-header h1 {
-        font-size: 2.2rem;
+        font-size: 1.8rem;
         font-weight: 800;
         color: var(--color-primary);
         margin-bottom: 0 !important;
@@ -130,7 +130,7 @@ st.markdown(
     }
     
     .brand-logo-desktop {
-        flex: 0 0 220px;
+        flex: 0 0 180px;
         text-align: left;
     }
     
@@ -141,7 +141,7 @@ st.markdown(
     }
     
     .brand-spacer {
-        flex: 0 0 220px;
+        flex: 0 0 180px;
     }
 
     /* Logo Visibility & Mobile Inline */
@@ -690,7 +690,7 @@ with st.container():
     header_html = f"""
     <div class="brand-row-container">
         <div class="brand-logo-desktop">
-            <img src="data:image/png;base64,{LOGO_BASE64}" style="width: 220px;">
+            <img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;">
         </div>
         <div class="brand-row-center">
             <div class="main-header">
@@ -762,7 +762,7 @@ else:
         use_container_width=True,
         hide_index=True,  
         num_rows="fixed",
-        height=360,  # Reduced heavily to ensure no page scroll on 100% zoom
+        height=340,  # Reduced heavily to ensure no page scroll on 100% zoom
         key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
     )
 
