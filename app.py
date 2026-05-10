@@ -559,21 +559,28 @@ def draw_record_dialog():
             f"""
             <style>
             #vwrap-{spin_key} {{
-                position: relative; width: 220px; height: 220px;
+                position: relative;
+                width: min(220px, 80vw); height: min(220px, 80vw);
                 margin: 1.2rem auto 0.8rem;
+                pointer-events: none;   /* prevents hover repaints on entire block */
             }}
-            #vwrap-{spin_key} .v-img  {{ width:220px; height:220px; border-radius:50%; display:block; opacity:0.25; }}
-            #vwrap-{spin_key} .v-top  {{
-                position:absolute; top:20px; left:0; right:0; text-align:center;
-                font-size:1.1rem; font-weight:900; color:#ffffff;
+            #vwrap-{spin_key} .v-img {{
+                width: 100%; height: 100%;
+                border-radius: 50%; display: block; opacity: 0.25;
+            }}
+            #vwrap-{spin_key} .v-top {{
+                position: absolute; top: 9%; left: 0; right: 0;
+                text-align: center;
+                font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
                 text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                padding:0 28px; line-height:1.3; pointer-events:none;
+                padding: 0 12%; line-height: 1.3;
             }}
             #vwrap-{spin_key} .v-bottom {{
-                position:absolute; bottom:20px; left:0; right:0; text-align:center;
-                font-size:0.95rem; font-weight:800; color:#f0f0f0;
+                position: absolute; bottom: 9%; left: 0; right: 0;
+                text-align: center;
+                font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
                 text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                padding:0 28px; line-height:1.3; pointer-events:none;
+                padding: 0 12%; line-height: 1.3;
             }}
             </style>
             <div id="vwrap-{spin_key}">
@@ -603,33 +610,34 @@ def draw_record_dialog():
             }}
             #vwrap-{spin_key} {{
                 position: relative;
-                width: 220px; height: 220px;
+                width: min(220px, 80vw); height: min(220px, 80vw);
                 margin: 1.2rem auto 0.8rem;
+                pointer-events: none;   /* prevents hover repaints that restart animation fill */
             }}
             #vwrap-{spin_key} .v-img {{
-                width: 220px; height: 220px;
+                width: 100%; height: 100%;
                 border-radius: 50%; display: block;
                 animation:
                     vinylDecel-{spin_key} 4s  cubic-bezier(0.05, 0, 0.3, 1) forwards,
                     vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
             }}
             #vwrap-{spin_key} .v-top {{
-                position: absolute; top: 20px; left: 0; right: 0;
+                position: absolute; top: 9%; left: 0; right: 0;
                 text-align: center; opacity: 0;
                 animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
-                pointer-events: none;
-                font-size: 1.1rem; font-weight: 900; color: #ffffff;
+                will-change: opacity;   /* isolates layer, prevents hover repaint reset */
+                font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
                 text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                padding: 0 28px; line-height: 1.3;
+                padding: 0 12%; line-height: 1.3;
             }}
             #vwrap-{spin_key} .v-bottom {{
-                position: absolute; bottom: 20px; left: 0; right: 0;
+                position: absolute; bottom: 9%; left: 0; right: 0;
                 text-align: center; opacity: 0;
                 animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
-                pointer-events: none;
-                font-size: 0.95rem; font-weight: 800; color: #f0f0f0;
+                will-change: opacity;   /* isolates layer, prevents hover repaint reset */
+                font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
                 text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                padding: 0 28px; line-height: 1.3;
+                padding: 0 12%; line-height: 1.3;
             }}
             </style>
             <div id="vwrap-{spin_key}">
