@@ -489,6 +489,8 @@ if "artist_select" not in st.session_state:
     st.session_state["artist_select"] = []
 if "letter_select" not in st.session_state:
     st.session_state["letter_select"] = []
+if "drawn_record" not in st.session_state:
+    st.session_state["drawn_record"] = None
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -540,7 +542,14 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-    
+
+    # --- Draw Record Button ---
+    st.markdown('<div style="margin: 0.5rem 0;">', unsafe_allow_html=True)
+    if st.button("🎲 הגרל תקליט", use_container_width=True):
+        st.session_state["drawn_record"] = None  # reset so a fresh draw happens
+        draw_record_dialog()
+    st.markdown('</div>', unsafe_allow_html=True)
+
     st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> סינון</h3>', unsafe_allow_html=True)
 
     st.text_input("", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input")
@@ -592,6 +601,59 @@ if st.session_state["current_page"] > MAX_PAGE:
 # ---------------------------------------------------------------------------
 # Dialog modals
 # ---------------------------------------------------------------------------
+
+@st.dialog("🎲 הגרלת תקליט")
+def draw_record_dialog():
+    if df.empty:
+        st.warning("אין תקליטים בספרייה.")
+        return
+
+    # Draw on first open or when Spin Again is clicked
+    if st.session_state["drawn_record"] is None:
+        st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
+
+    record = st.session_state["drawn_record"]
+    artist = record.get("artist", "—")
+    name   = record.get("name", "—")
+    notes  = record.get("notes", "")
+
+    # --- Stage 1: placeholder container for Stage 2 vinyl animation ---
+    st.markdown(
+        """
+        <div style="
+            text-align: center;
+            padding: 1.5rem 0 0.5rem;
+            font-size: 3rem;
+        ">🎵</div>
+        """,
+        unsafe_allow_html=True,
+    )
+    # ------------------------------------------------------------------
+
+    st.markdown(
+        f"""
+        <div style="text-align: center; direction: rtl; padding: 0.5rem 0 1.5rem;">
+            <div style="font-size: 1.1rem; color: #8292A1; font-weight: 600; margin-bottom: 0.4rem;">
+                {artist}
+            </div>
+            <div style="font-size: 1.7rem; font-weight: 800; color: #3E4B59; line-height: 1.25;">
+                {name}
+            </div>
+            {f'<div style="font-size: 0.85rem; color: #8292A1; margin-top: 0.6rem;">{notes}</div>' if notes and notes.lower() not in ("", "none") else ""}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    col_spin, col_close = st.columns(2)
+    with col_spin:
+        if st.button("🎲 סובב שוב", use_container_width=True):
+            st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
+            st.rerun()
+    with col_close:
+        if st.button("✕ סגור", use_container_width=True):
+            st.session_state["drawn_record"] = None
+            st.rerun()
 
 @st.dialog("הוספת תקליט חדש")
 def add_record_dialog():
