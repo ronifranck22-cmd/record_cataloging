@@ -492,6 +492,10 @@ if "letter_select" not in st.session_state:
     st.session_state["letter_select"] = []
 if "drawn_record" not in st.session_state:
     st.session_state["drawn_record"] = None
+if "dialog_open" not in st.session_state:
+    st.session_state["dialog_open"] = False
+if "drawn_at" not in st.session_state:
+    st.session_state["drawn_at"] = 0.0
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -522,121 +526,132 @@ df = st.session_state["df"]
 # Sidebar — Power Numbers & Filters (GLOBAL)
 # ---------------------------------------------------------------------------
 
-# NOTE: draw_record_dialog is defined here (before the sidebar block) so the
-# sidebar button can call it without a NameError.
 @st.dialog(" הגרלת תקליט")
 def draw_record_dialog():
     if df.empty:
         st.warning("אין תקליטים בספרייה.")
         return
 
-    # spin_key increments on every "Spin Again" click, forcing the browser
-    # to treat the element as new and restart the CSS animation from 0.
     if "spin_key" not in st.session_state:
         st.session_state["spin_key"] = 0
 
-    # Draw a record on first open
+    # Draw a fresh record when opened
     if st.session_state["drawn_record"] is None:
         st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
+        st.session_state["drawn_at"] = time.time()
 
-    record = st.session_state["drawn_record"]
-    # Sanitize: replace literal "None" / actual None with empty string
+    record   = st.session_state["drawn_record"]
     raw_artist = record.get("artist") or ""
     raw_name   = record.get("name")   or ""
     artist = raw_artist if str(raw_artist).lower() not in ("", "none") else "לא ידוע"
     name   = raw_name   if str(raw_name).lower()   not in ("", "none") else "לא ידוע"
     spin_key = st.session_state["spin_key"]
-
     vinyl_src = f"data:image/png;base64,{VINYL_BASE64}" if VINYL_BASE64 else ""
 
-    # Timing sequence:
-    #   0 → 4s    : vinyl decelerates (cubic-bezier)
-    #   4 → 4.8s  : vinyl fades to 0.3 opacity (ghostly)
-    #   4.8s+     : text fades in as dominant element
-    st.markdown(
-        f"""
-        <style>
-        @keyframes vinylDecel-{spin_key} {{
-            0%   {{ transform: rotate(0deg); }}
-            100% {{ transform: rotate(1080deg); }}
-        }}
-        @keyframes vinylGhost-{spin_key} {{
-            from {{ opacity: 1; }}
-            to   {{ opacity: 0.25; }}
-        }}
-        @keyframes popIn-{spin_key} {{
-            from {{ opacity: 0; }}
-            to   {{ opacity: 1; }}
-        }}
-        #vwrap-{spin_key} {{
-            position: relative;
-            width: 220px;
-            height: 220px;
-            margin: 1.2rem auto 0.8rem;
-        }}
-        #vwrap-{spin_key} .v-img {{
-            width: 220px;
-            height: 220px;
-            border-radius: 50%;
-            display: block;
-            /* Two animations: decelerate, then ghost-fade */
-            animation:
-                vinylDecel-{spin_key} 4s  cubic-bezier(0.05, 0, 0.3, 1) forwards,
-                vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
-        }}
-        /* Top groove text — album name */
-        #vwrap-{spin_key} .v-top {{
-            position: absolute;
-            top: 20px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            opacity: 0;
-            animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
-            pointer-events: none;
-            font-size: 1.1rem;
-            font-weight: 900;
-            color: #ffffff;
-            text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-            padding: 0 28px;
-            line-height: 1.3;
-        }}
-        /* Bottom groove text — artist name */
-        #vwrap-{spin_key} .v-bottom {{
-            position: absolute;
-            bottom: 20px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            opacity: 0;
-            animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
-            pointer-events: none;
-            font-size: 0.95rem;
-            font-weight: 800;
-            color: #f0f0f0;
-            text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-            padding: 0 28px;
-            line-height: 1.3;
-        }}
-        </style>
-        <div id="vwrap-{spin_key}">
-            <img class="v-img" src="{vinyl_src}" alt="vinyl" />
-            <div class="v-top">{name}</div>
-            <div class="v-bottom">{artist}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    # If the animation has already completed, render final state instantly
+    # (avoids text disappearing on Streamlit's periodic reruns)
+    elapsed = time.time() - st.session_state.get("drawn_at", 0)
+    animation_done = elapsed > 4.9  # 4s spin + 0.8s ghost fade + buffer
+
+    if animation_done:
+        # Render static final state: ghost vinyl + visible text, no animation
+        st.markdown(
+            f"""
+            <style>
+            #vwrap-{spin_key} {{
+                position: relative; width: 220px; height: 220px;
+                margin: 1.2rem auto 0.8rem;
+            }}
+            #vwrap-{spin_key} .v-img  {{ width:220px; height:220px; border-radius:50%; display:block; opacity:0.25; }}
+            #vwrap-{spin_key} .v-top  {{
+                position:absolute; top:20px; left:0; right:0; text-align:center;
+                font-size:1.1rem; font-weight:900; color:#ffffff;
+                text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding:0 28px; line-height:1.3; pointer-events:none;
+            }}
+            #vwrap-{spin_key} .v-bottom {{
+                position:absolute; bottom:20px; left:0; right:0; text-align:center;
+                font-size:0.95rem; font-weight:800; color:#f0f0f0;
+                text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding:0 28px; line-height:1.3; pointer-events:none;
+            }}
+            </style>
+            <div id="vwrap-{spin_key}">
+                <img class="v-img" src="{vinyl_src}" alt="vinyl" />
+                <div class="v-top">{name}</div>
+                <div class="v-bottom">{artist}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        # Full animation sequence
+        st.markdown(
+            f"""
+            <style>
+            @keyframes vinylDecel-{spin_key} {{
+                0%   {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(1080deg); }}
+            }}
+            @keyframes vinylGhost-{spin_key} {{
+                from {{ opacity: 1; }}
+                to   {{ opacity: 0.25; }}
+            }}
+            @keyframes popIn-{spin_key} {{
+                from {{ opacity: 0; }}
+                to   {{ opacity: 1; }}
+            }}
+            #vwrap-{spin_key} {{
+                position: relative;
+                width: 220px; height: 220px;
+                margin: 1.2rem auto 0.8rem;
+            }}
+            #vwrap-{spin_key} .v-img {{
+                width: 220px; height: 220px;
+                border-radius: 50%; display: block;
+                animation:
+                    vinylDecel-{spin_key} 4s  cubic-bezier(0.05, 0, 0.3, 1) forwards,
+                    vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
+            }}
+            #vwrap-{spin_key} .v-top {{
+                position: absolute; top: 20px; left: 0; right: 0;
+                text-align: center; opacity: 0;
+                animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
+                pointer-events: none;
+                font-size: 1.1rem; font-weight: 900; color: #ffffff;
+                text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding: 0 28px; line-height: 1.3;
+            }}
+            #vwrap-{spin_key} .v-bottom {{
+                position: absolute; bottom: 20px; left: 0; right: 0;
+                text-align: center; opacity: 0;
+                animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
+                pointer-events: none;
+                font-size: 0.95rem; font-weight: 800; color: #f0f0f0;
+                text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding: 0 28px; line-height: 1.3;
+            }}
+            </style>
+            <div id="vwrap-{spin_key}">
+                <img class="v-img" src="{vinyl_src}" alt="vinyl" />
+                <div class="v-top">{name}</div>
+                <div class="v-bottom">{artist}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
     col_spin, col_close = st.columns(2)
     with col_spin:
         if st.button("סובב שוב", use_container_width=True):
             st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
             st.session_state["spin_key"] = spin_key + 1
-            # No st.rerun() — dialog re-executes automatically on button click
+            st.session_state["drawn_at"] = time.time()
+            st.rerun()  # safe: dialog_open=True keeps dialog alive on rerun
     with col_close:
         if st.button("✕ סגור", use_container_width=True):
             st.session_state["drawn_record"] = None
+            st.session_state["dialog_open"] = False
             st.rerun()
 
 with st.sidebar:
@@ -663,9 +678,12 @@ with st.sidebar:
 
     # --- Draw Record Button ---
     st.markdown('<div style="margin: 0.5rem 0;">', unsafe_allow_html=True)
-    if st.button("🎲 הגרל תקליט", use_container_width=True):
-        st.session_state["drawn_record"] = None  # reset so a fresh draw happens
-        draw_record_dialog()
+    if st.button(" הגרל תקליט", use_container_width=True):
+        st.session_state["drawn_record"] = None
+        st.session_state["spin_key"] = 0
+        st.session_state["drawn_at"] = 0.0
+        st.session_state["dialog_open"] = True
+        st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> סינון</h3>', unsafe_allow_html=True)
@@ -814,6 +832,12 @@ def update_record_dialog():
 @st.dialog("העלאת קובץ")
 def upload_csv_dialog():
     st.info("כלי העלאת CSV כרגע לא פעיל בממשק.")
+
+# ---------------------------------------------------------------------------
+# Invoke draw dialog at top level so st.rerun() inside it keeps it alive
+# ---------------------------------------------------------------------------
+if st.session_state.get("dialog_open", False):
+    draw_record_dialog()
 
 # ---------------------------------------------------------------------------
 # Main Layout
