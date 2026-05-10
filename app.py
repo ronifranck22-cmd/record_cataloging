@@ -25,8 +25,12 @@ def get_base64_of_bin_file(bin_file):
         return ""
 
 LOGO_BASE64 = get_base64_of_bin_file('logo.png')
-LOGO_HTML_HEADER = f'<img src="data:image/png;base64,{LOGO_BASE64}" style="height: 40px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
-LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 15vh; margin-bottom: -32vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>' if LOGO_BASE64 else ""
+# Login logo (Prominent)
+LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 10vh; margin-bottom: -28vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
+
+# Header Logos (Responsive)
+LOGO_HTML_DESKTOP = f'<div class="desktop-logo-container"><img src="data:image/png;base64,{LOGO_BASE64}" style="height: 65px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -110,6 +114,27 @@ st.markdown(
         color: var(--color-primary);
         margin-bottom: 0 !important;
         letter-spacing: -0.02em;
+    }
+
+    /* Logo Positioning Logic */
+    .desktop-logo-container {
+        position: fixed;
+        top: 0.5rem;
+        left: 3.5rem; /* Adjacent to sidebar toggle */
+        z-index: 999999;
+        display: block;
+    }
+    .mobile-logo-inline {
+        display: none;
+    }
+
+    @media (max-width: 640px) {
+        .desktop-logo-container {
+            display: none !important;
+        }
+        .mobile-logo-inline {
+            display: inline-block !important;
+        }
     }
 
     /* Modern Button Styling (Corporate Blue & Glassmorphism) */
@@ -622,7 +647,10 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-header_html = f'<div class="main-header"><h1>{LOGO_HTML_HEADER}אוסף התקליטים של ירון</h1></div>'
+if LOGO_HTML_DESKTOP:
+    st.markdown(LOGO_HTML_DESKTOP, unsafe_allow_html=True)
+
+header_html = f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>'
 st.markdown(header_html, unsafe_allow_html=True)
 
 # Unified Action Toolbar (Flexbox Container)
