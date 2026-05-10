@@ -564,9 +564,9 @@ def draw_record_dialog():
             from {{ opacity: 1; }}
             to   {{ opacity: 0.25; }}
         }}
-        @keyframes fadeInGroove-{spin_key} {{
-            from {{ opacity: 0; transform: translateY(6px); }}
-            to   {{ opacity: 1; transform: translateY(0);   }}
+        @keyframes popIn-{spin_key} {{
+            from {{ opacity: 0; }}
+            to   {{ opacity: 1; }}
         }}
         #vwrap-{spin_key} {{
             position: relative;
@@ -592,7 +592,7 @@ def draw_record_dialog():
             right: 0;
             text-align: center;
             opacity: 0;
-            animation: fadeInGroove-{spin_key} 1s ease-out 4.8s forwards;
+            animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
             pointer-events: none;
             font-size: 1.1rem;
             font-weight: 900;
@@ -609,7 +609,7 @@ def draw_record_dialog():
             right: 0;
             text-align: center;
             opacity: 0;
-            animation: fadeInGroove-{spin_key} 1s ease-out 5.1s forwards;
+            animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
             pointer-events: none;
             font-size: 0.95rem;
             font-weight: 800;
