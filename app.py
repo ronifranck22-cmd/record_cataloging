@@ -28,6 +28,10 @@ LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 # Login logo (Prominent)
 LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 5vh; margin-bottom: -12vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
+# Header Logos (Responsive)
+LOGO_HTML_HEADER_LEFT = f'<div class="header-logo-left"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
+
 # ---------------------------------------------------------------------------
 # Page config
 # ---------------------------------------------------------------------------
@@ -114,6 +118,25 @@ st.markdown(
 
     /* Brand Row Alignment (Desktop) */
     div.element-container:has(#brand-row-anchor) { display: none !important; }
+    
+    .header-logo-left {
+        display: block;
+        text-align: left;
+    }
+
+    /* Logo Visibility & Mobile Inline */
+    .mobile-logo-inline {
+        display: none;
+    }
+
+    @media (max-width: 640px) {
+        .header-logo-left {
+            display: none !important;
+        }
+        .mobile-logo-inline {
+            display: inline-block !important;
+        }
+    }
 
     /* Modern Button Styling (Corporate Blue & Glassmorphism) */
     [data-testid="stButton"] button {
@@ -637,10 +660,15 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Row 1: Brand (Title centered)
+# Row 1: Brand (Title centered, Logo left)
 with st.container():
     st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
-    st.markdown('<div class="main-header"><h1>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
+    col_logo, col_title, col_empty = st.columns([1, 2, 1])
+    with col_logo:
+        if LOGO_HTML_HEADER_LEFT:
+            st.markdown(LOGO_HTML_HEADER_LEFT, unsafe_allow_html=True)
+    with col_title:
+        st.markdown(f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
 
 # Row 2: Spacer
 st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
