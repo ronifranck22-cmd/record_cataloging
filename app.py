@@ -86,7 +86,7 @@ st.markdown(
 
     /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        padding-top: 2rem !important;
+        padding-top: 1.2rem !important;
         padding-bottom: 0rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
@@ -125,7 +125,7 @@ st.markdown(
         justify-content: space-between;
         align-items: center;
         width: 100%;
-        margin-bottom: 15px;
+        margin-bottom: 0px;
         direction: ltr !important; /* Force LTR for the header row to put logo on the left */
     }
     
@@ -702,8 +702,7 @@ with st.container():
     """
     st.markdown(header_html, unsafe_allow_html=True)
 
-# Row 2: Spacer
-st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
+
 
 # Row 3: Action Toolbar (The Original 5)
 with st.container():
