@@ -8,9 +8,25 @@ Run locally:
 import streamlit as st
 import pandas as pd
 import time
+import base64
 
 from db_client import get_db
 import record_store
+
+# ---------------------------------------------------------------------------
+# Logo Processing (Base64 for inline embedding)
+# ---------------------------------------------------------------------------
+def get_base64_of_bin_file(bin_file):
+    try:
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    except FileNotFoundError:
+        return ""
+
+LOGO_BASE64 = get_base64_of_bin_file('logo.png')
+LOGO_HTML_HEADER = f'<img src="data:image/png;base64,{LOGO_BASE64}" style="height: 40px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
+LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 15vh; margin-bottom: -32vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>' if LOGO_BASE64 else ""
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -370,6 +386,9 @@ def check_password():
         unsafe_allow_html=True
     )
 
+    if LOGO_HTML_LOGIN:
+        st.markdown(LOGO_HTML_LOGIN, unsafe_allow_html=True)
+
     st.text_input("הזינו סיסמא", type="password", on_change=password_entered, key="password")
     
     if "password_correct" in st.session_state and not st.session_state["password_correct"]:
@@ -603,7 +622,8 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown('<div class="main-header"><h1>אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
+header_html = f'<div class="main-header"><h1>{LOGO_HTML_HEADER}אוסף התקליטים של ירון</h1></div>'
+st.markdown(header_html, unsafe_allow_html=True)
 
 # Unified Action Toolbar (Flexbox Container)
 with st.container():
