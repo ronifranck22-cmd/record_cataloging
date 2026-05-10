@@ -570,7 +570,7 @@ def draw_record_dialog():
     with col_spin:
         if st.button("🎲 סובב שוב", use_container_width=True):
             st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
-            st.rerun()
+            # No st.rerun() — the dialog re-executes automatically on button click
     with col_close:
         if st.button("✕ סגור", use_container_width=True):
             st.session_state["drawn_record"] = None
