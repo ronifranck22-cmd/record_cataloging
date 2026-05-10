@@ -26,6 +26,7 @@ def get_base64_of_bin_file(bin_file):
 
 LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 BG_BASE64 = get_base64_of_bin_file('background_pattern.png')
+VINYL_BASE64 = get_base64_of_bin_file('spinning_vinyl_asset.png')
 # Login logo (Prominent)
 LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 5vh; margin-bottom: -12vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
@@ -538,18 +539,31 @@ def draw_record_dialog():
     name   = record.get("name", "—")
     notes  = record.get("notes", "")
 
-    # --- Stage 1: placeholder container for Stage 2 vinyl animation ---
+    # --- Stage 3: Spinning vinyl animation ---
+    vinyl_src = f"data:image/png;base64,{VINYL_BASE64}" if VINYL_BASE64 else ""
     st.markdown(
-        """
-        <div style="
-            text-align: center;
-            padding: 1.5rem 0 0.5rem;
-            font-size: 3rem;
-        ">🎵</div>
+        f"""
+        <style>
+        @keyframes spin {{
+            from {{ transform: rotate(0deg); }}
+            to   {{ transform: rotate(360deg); }}
+        }}
+        .vinyl-spinner {{
+            animation: spin 3s linear infinite;
+            display: block;
+            margin: 1rem auto 0.5rem;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+        }}
+        </style>
+        <div style="text-align: center;">
+            <img class="vinyl-spinner" src="{vinyl_src}" alt="vinyl" />
+        </div>
         """,
         unsafe_allow_html=True,
     )
-    # ------------------------------------------------------------------
+    # ----------------------------------------
 
     st.markdown(
         f"""
