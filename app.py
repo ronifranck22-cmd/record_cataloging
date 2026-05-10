@@ -29,7 +29,7 @@ LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 5vh; margin-bottom: -12vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
 # Header Logos (Responsive)
-LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 220px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_HEADER_LEFT = f'<div class="header-logo-left"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 100px;"></div>' if LOGO_BASE64 else ""
 LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
 
 # ---------------------------------------------------------------------------
@@ -116,26 +116,12 @@ st.markdown(
         letter-spacing: -0.02em;
     }
 
-    /* Brand Row (Desktop) */
+    /* Brand Row Alignment (Desktop) */
     div.element-container:has(#brand-row-anchor) { display: none !important; }
     
-    div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) {
-        display: flex !important;
-        flex-direction: row !important;
-        justify-content: center !important;
-        align-items: center !important;
-        position: relative !important;
-        width: 100% !important;
-        margin-bottom: 5px !important;
-    }
-    
-    div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) .brand-logo-desktop {
-        position: absolute !important;
-        left: 0 !important;
-        top: 50% !important;
-        transform: translateY(-50%) !important;
+    .header-logo-left {
         display: block;
-        z-index: 10;
+        text-align: left;
     }
 
     /* Logo Visibility & Mobile Inline */
@@ -144,7 +130,7 @@ st.markdown(
     }
 
     @media (max-width: 640px) {
-        div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) .brand-logo-desktop {
+        .header-logo-left {
             display: none !important;
         }
         .mobile-logo-inline {
@@ -674,12 +660,15 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-# Row 1: Brand (Title centered, Logo far right)
+# Row 1: Brand (Title centered, Logo left)
 with st.container():
     st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
-    if LOGO_HTML_DESKTOP_BRAND:
-        st.markdown(LOGO_HTML_DESKTOP_BRAND, unsafe_allow_html=True)
-    st.markdown(f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
+    col_logo, col_title, col_empty = st.columns([1, 2, 1])
+    with col_logo:
+        if LOGO_HTML_HEADER_LEFT:
+            st.markdown(LOGO_HTML_HEADER_LEFT, unsafe_allow_html=True)
+    with col_title:
+        st.markdown(f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
 
 # Row 2: Spacer
 st.markdown('<div style="height: 15px;"></div>', unsafe_allow_html=True)
