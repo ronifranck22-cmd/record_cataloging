@@ -131,7 +131,7 @@ st.markdown(
     
     div[data-testid="stVerticalBlock"]:has(> div.element-container #brand-row-anchor) .brand-logo-desktop {
         position: absolute !important;
-        right: 0 !important;
+        left: 0 !important;
         top: 50% !important;
         transform: translateY(-50%) !important;
         display: block;
