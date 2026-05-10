@@ -663,10 +663,13 @@ st.sidebar.markdown(
 # Row 1: Brand (Title centered, Logo left)
 with st.container():
     st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
-    col_logo, col_title, col_empty = st.columns([1, 2, 1])
+    # כאן הפכנו את הסדר: עמודה ריקה בימין (1), כותרת באמצע (2), לוגו בשמאל (1)
+    col_empty, col_title, col_logo = st.columns([1, 2, 1])
+    
     with col_logo:
         if LOGO_HTML_HEADER_LEFT:
             st.markdown(LOGO_HTML_HEADER_LEFT, unsafe_allow_html=True)
+            
     with col_title:
         st.markdown(f'<div class="main-header"><h1>{LOGO_HTML_MOBILE_INLINE}אוסף התקליטים של ירון</h1></div>', unsafe_allow_html=True)
 
