@@ -524,57 +524,89 @@ df = st.session_state["df"]
 
 # NOTE: draw_record_dialog is defined here (before the sidebar block) so the
 # sidebar button can call it without a NameError.
-@st.dialog("🎲 הגרלת תקליט")
+@st.dialog(" הגרלת תקליט")
 def draw_record_dialog():
     if df.empty:
         st.warning("אין תקליטים בספרייה.")
         return
 
-    # Draw on first open or when Spin Again is clicked
+    # spin_key increments on every "Spin Again" click, forcing the browser
+    # to treat the element as new and restart the CSS animation from 0.
+    if "spin_key" not in st.session_state:
+        st.session_state["spin_key"] = 0
+
+    # Draw a record on first open
     if st.session_state["drawn_record"] is None:
         st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
 
     record = st.session_state["drawn_record"]
     artist = record.get("artist", "—")
     name   = record.get("name", "—")
-    notes  = record.get("notes", "")
+    spin_key = st.session_state["spin_key"]
 
-    # --- Stage 3: Spinning vinyl animation ---
     vinyl_src = f"data:image/png;base64,{VINYL_BASE64}" if VINYL_BASE64 else ""
+
+    # Phase 1: vinyl decelerates (fast → slow → stop) over 4s.
+    # Phase 2: text fades in on the center label after the spin ends.
+    # spin_key is embedded in the element ID so changing it forces a
+    # fresh DOM node → animation restarts cleanly on "Spin Again".
     st.markdown(
         f"""
         <style>
-        @keyframes spin {{
-            from {{ transform: rotate(0deg); }}
-            to   {{ transform: rotate(360deg); }}
+        @keyframes vinylDecel-{spin_key} {{
+            0%   {{ transform: rotate(0deg); }}
+            100% {{ transform: rotate(1080deg); }}
         }}
-        .vinyl-spinner {{
-            animation: spin 3s linear infinite;
-            display: block;
-            margin: 1rem auto 0.5rem;
+        @keyframes fadeInLabel-{spin_key} {{
+            from {{ opacity: 0; transform: translate(-50%, -50%) scale(0.95); }}
+            to   {{ opacity: 1; transform: translate(-50%, -50%) scale(1);    }}
+        }}
+        #vwrap-{spin_key} {{
+            position: relative;
+            width: 200px;
+            height: 200px;
+            margin: 1.2rem auto 0.8rem;
+        }}
+        #vwrap-{spin_key} .v-img {{
             width: 200px;
             height: 200px;
             border-radius: 50%;
+            display: block;
+            animation: vinylDecel-{spin_key} 4s cubic-bezier(0.05, 0, 0.3, 1) forwards;
+        }}
+        /* Text sits absolutely centred on the label circle */
+        #vwrap-{spin_key} .v-label {{
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            width: 84px;          /* ≈ label diameter */
+            text-align: center;
+            opacity: 0;
+            animation: fadeInLabel-{spin_key} 0.8s ease-out forwards;
+            animation-delay: 4s;  /* starts exactly when spin ends */
+            pointer-events: none;
+        }}
+        #vwrap-{spin_key} .v-name {{
+            font-size: 0.52rem;
+            font-weight: 800;
+            color: #1a1a1a;
+            line-height: 1.25;
+            margin-bottom: 3px;
+        }}
+        #vwrap-{spin_key} .v-artist {{
+            font-size: 0.48rem;
+            font-weight: 600;
+            color: #444;
+            line-height: 1.2;
         }}
         </style>
-        <div style="text-align: center;">
-            <img class="vinyl-spinner" src="{vinyl_src}" alt="vinyl" />
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    # ----------------------------------------
-
-    st.markdown(
-        f"""
-        <div style="text-align: center; direction: rtl; padding: 0.5rem 0 1.5rem;">
-            <div style="font-size: 1.1rem; color: #8292A1; font-weight: 600; margin-bottom: 0.4rem;">
-                {artist}
+        <div id="vwrap-{spin_key}">
+            <img class="v-img" src="{vinyl_src}" alt="vinyl" />
+            <div class="v-label">
+                <div class="v-name">{name}</div>
+                <div class="v-artist">{artist}</div>
             </div>
-            <div style="font-size: 1.7rem; font-weight: 800; color: #3E4B59; line-height: 1.25;">
-                {name}
-            </div>
-            {f'<div style="font-size: 0.85rem; color: #8292A1; margin-top: 0.6rem;">{notes}</div>' if notes and notes.lower() not in ("", "none") else ""}
         </div>
         """,
         unsafe_allow_html=True,
@@ -582,9 +614,10 @@ def draw_record_dialog():
 
     col_spin, col_close = st.columns(2)
     with col_spin:
-        if st.button("🎲 סובב שוב", use_container_width=True):
+        if st.button("סובב שוב", use_container_width=True):
             st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
-            # No st.rerun() — the dialog re-executes automatically on button click
+            st.session_state["spin_key"] = spin_key + 1
+            # No st.rerun() — dialog re-executes automatically on button click
     with col_close:
         if st.button("✕ סגור", use_container_width=True):
             st.session_state["drawn_record"] = None
