@@ -26,7 +26,7 @@ def get_base64_of_bin_file(bin_file):
 
 LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 # Login logo (Prominent)
-LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 10vh; margin-bottom: -28vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
+LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 5vh; margin-bottom: -12vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
 # Header Logos (Responsive)
 LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 220px;"></div>' if LOGO_BASE64 else ""
@@ -135,6 +135,7 @@ st.markdown(
         top: 50% !important;
         transform: translateY(-50%) !important;
         display: block;
+        z-index: 10;
     }
 
     /* Logo Visibility & Mobile Inline */
@@ -421,7 +422,7 @@ def check_password():
         <style>
         /* Push the password input down and center it horizontally safely */
         [data-testid="stTextInput"] {
-            margin-top: 35vh !important;
+            margin-top: 15vh !important;
             margin-left: auto !important;
             margin-right: auto !important;
             width: 350px !important;
