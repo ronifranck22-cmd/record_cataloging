@@ -86,7 +86,7 @@ st.markdown(
 
     /* Maximize Density, adjust top padding to prevent header cut-off */
     .block-container {
-        padding-top: 0.7rem !important;
+        padding-top: 0.4rem !important;
         padding-bottom: 0rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
@@ -109,7 +109,8 @@ st.markdown(
         margin-bottom: 0;
     }
     .main-header h1 {
-        font-size: 1.8rem;
+        font-size: 2.2rem;
+        line-height: 1.1;
         font-weight: 800;
         color: var(--color-primary);
         margin-bottom: 0 !important;
@@ -762,7 +763,7 @@ else:
         use_container_width=True,
         hide_index=True,  
         num_rows="fixed",
-        height=340,  # Reduced heavily to ensure no page scroll on 100% zoom
+        height=320,  # Reduced heavily to ensure no page scroll on 100% zoom
         key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
     )
 
