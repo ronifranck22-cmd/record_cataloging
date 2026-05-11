@@ -45,7 +45,7 @@ HEBREW_TO_ENGLISH = {
     "גבע אלון":             "Geva Alon",
     "אלג'יר":               "Aljir",
     "כוורת":                "Kaveret",
-    "להקת הנח"ל":           "Nahal Brigade",
+    'להקת הנח"ל':           "Nahal Brigade",
     "תיסלם":                "Teislem",
     "יהורם גאון":           "Yehoram Gaon",
     "נחמה הנדל":            "Nachama Hendel",
