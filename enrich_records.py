@@ -28,35 +28,50 @@ TYPO_FIX = {
 # 3. מיפוי עברית → אנגלית לאמנים ישראלים מרכזיים
 # ---------------------------------------------------------------------------
 HEBREW_TO_ENGLISH = {
-    "חווה אלברשטיין":       "Chava Alberstein",
+    "חווה אלברשטיין":          "Chava Alberstein",
     "חווה אלברשטיין והפלטינה": "Chava Alberstein Platina",
-    "שלום חנוך":            "Shalom Hanoch",
-    "אריק איינשטיין":       "Arik Einstein",
-    "יהודית רביץ":          "Yehudit Ravitz",
-    "ריטה":                  "Rita",
-    "אביב גפן":             "Aviv Geffen",
-    "יוסי בנאי":            "Yossi Banai",
-    "משינה":                 "Mashina",
-    "שלמה ארצי":            "Shlomo Artzi",
-    "נורית גלרון":          "Nurit Galron",
-    "דני ליטני":            "Dani Litani",
-    "דודו אלהרר":           "Dudu Elharar",
-    "גדי אלון":             "Gadi Alon",
-    "גבע אלון":             "Geva Alon",
-    "אלג'יר":               "Aljir",
-    "כוורת":                "Kaveret",
-    'להקת הנח"ל':           "Nahal Brigade",
-    "תיסלם":                "Teislem",
-    "יהורם גאון":           "Yehoram Gaon",
-    "נחמה הנדל":            "Nachama Hendel",
-    "אהוד מנור":            "Ehud Manor",
-    "אהוד בנאי":            "Ehud Banai",
-    "דני רובס":             "Danny Robas",
-    "שייקה לוי":            "Shaike Levi",
-    "הדג נחש":              "Hadag Nahash",
-    "אסתר עופרים":          "Esther Ofarim",
-    "ז'אן ז'אק לורן":      "Jean-Jacques Laurent",
-    "ברי סחרוף":            "Berry Sakharof",
+    "שלום חנוך":               "Shalom Hanoch",
+    "אריק איינשטיין":          "Arik Einstein",
+    "יהודית רביץ":             "Yehudit Ravitz",
+    "ריטה":                    "Rita",
+    "אביב גפן":                "Aviv Geffen",
+    "יוסי בנאי":               "Yossi Banai",
+    "משינה":                   "Mashina",
+    "שלמה ארצי":               "Shlomo Artzi",
+    "נורית גלרון":             "Nurit Galron",
+    "דני ליטני":               "Dani Litani",
+    "דודו אלהרר":              "Dudu Elharar",
+    "גדי אלון":                "Gadi Alon",
+    "גבע אלון":                "Geva Alon",
+    "אלג'יר":                  "Aljir",
+    "כוורת":                   "Kaveret",
+    'להקת הנח"ל':              "Nahal Brigade",
+    "תיסלם":                   "Teislem",
+    "יהורם גאון":              "Yehoram Gaon",
+    "נחמה הנדל":               "Nachama Hendel",
+    "אהוד מנור":               "Ehud Manor",
+    "אהוד בנאי":               "Ehud Banai",
+    "דני רובס":                "Danny Robas",
+    "שייקה לוי":               "Shaike Levi",
+    "הדג נחש":                 "Hadag Nahash",
+    "אסתר עופרים":             "Esther Ofarim",
+    "ז'אן ז'אק לורן":         "Jean-Jacques Laurent",
+    "ברי סחרוף":               "Berry Sakharof",
+    # Amdursky family
+    "אסף אמדורסקי":            "Assaf Amdursky",
+    "בני אמדורסקי":            "Benny Amdursky",
+    # More Israeli artists
+    "דני סנדרסון":             "Danny Sanderson",
+    "שי גבסו":                 "Shay Gabso",
+    "איוב":                    "Iyov",
+    "אביהו מדינה":             "Avihu Medina",
+    "זוהר ארגוב":              "Zohar Argov",
+    "מוסי":                    "Musi",
+    "מוסי כץ":                 "Musi Katz",
+    "מיקי גבריאלוב":           "Miki Gabrielov",
+    "חיים מוסקוביץ":           "Haim Moskovitz",
+    "אורי זוהר":               "Uri Zohar",
+    "להקת פיקוד המרכז":        "Pikud Hamerkaz",
 }
 
 # ---------------------------------------------------------------------------
@@ -68,6 +83,9 @@ NOISE_RE = re.compile(
     r'מהדורה|מהדורת|מיוחד|מיוחדת|ספרדית|יידיש)\b',
     flags=re.IGNORECASE | re.UNICODE,
 )
+
+# מילים שמעידות על אלבום בכורה / עצמי — ניסיון חיפוש על שם האמן בלבד
+DEBUT_WORDS = {"בכורה", "ראשון", "ראשונה", "עצמי", "עצמאי", "debut"}
 
 # ---------------------------------------------------------------------------
 # Discogs client
@@ -98,9 +116,10 @@ def first_n_words(text: str, n: int) -> str:
     return ' '.join(text.split()[:n])
 
 
-def discogs_search_once(query: str, label: str):
+def discogs_search_once(query: str, label: str, artist_hint: str = ""):
     """
     מחפש פעם אחת בדיסקוגס.
+    בודק עד 3 תוצאות ראשונות — מחזיר את הראשונה שמכילה את שם האמן.
     מחזיר (image_url, price_str) או (None, None).
     """
     print(f'    [{label}] שולח לדיסקוגס: "{query}"')
@@ -111,12 +130,27 @@ def discogs_search_once(query: str, label: str):
         if count == 0:
             return None, None
 
-        release = results[0]
-        img = release.thumb or None
+        # בדוק עד 3 תוצאות; עדיף תוצאה שמכילה את שם האמן
+        hint_lower = artist_hint.lower()
+        best_release = None
+        for i in range(min(3, count)):
+            rel = results[i]
+            if best_release is None:
+                best_release = rel  # תמיד שמור לפחות את הראשונה
+            # בדוק אם שם האמן מופיע בנתוני התוצאה
+            artists_str = " ".join(
+                a.get("name", "").lower()
+                for a in (getattr(rel, "data", {}).get("artists") or [])
+            )
+            if hint_lower and hint_lower in artists_str:
+                best_release = rel
+                break  # מצאנו התאמה טובה
+
+        img = best_release.thumb or None
 
         price_str = None
         try:
-            stats = release.fetch('stats') or {}
+            stats = best_release.fetch('stats') or {}
             lp = stats.get('lowest_price') or {}
             val = lp.get('value') if isinstance(lp, dict) else None
             cur = lp.get('currency', '') if isinstance(lp, dict) else ''
@@ -134,34 +168,46 @@ def discogs_search_once(query: str, label: str):
 
 def get_discogs_data(artist: str, album: str):
     """
-    Three-Strikes Search:
-      Strike 1 — עברית מלאה (מנוקה)
-      Strike 2 — אנגלית (אם יש מיפוי) + אלבום
-      Strike 3 — אמן בלבד + 2 מילות האלבום הראשונות
+    Fuzzy Multi-Try:
+      Pass 0 (debut)  — אמן בלבד אם האלבום מכיל מילת בכורה
+      Pass 1 (Hebrew) — עברית מלאה (מנוקה)
+      Pass 2 (English)— אנגלית (אם יש מיפוי) + אלבום
+      Pass 3 (Broad)  — אמן + 2 מילות האלבום הראשונות
+      Pass 4 (artist) — אמן בלבד (last resort)
     """
     cleaned_album  = remove_noise(album)
     cleaned_artist = remove_noise(artist)
     english_artist = HEBREW_TO_ENGLISH.get(artist.strip())
+    hint           = english_artist or artist  # hint לזיהוי שם אמן בתוצאות
 
-    queries = [
-        # Strike 1: עברית מלאה
-        (f"{cleaned_artist} {cleaned_album}".strip(), "Strike 1 עברית"),
-        # Strike 2: אנגלית (אם קיים מיפוי)
+    # Pass 0: אלבום בכורה / עצמי — נסה אמן בלבד תחילה
+    is_debut = bool(DEBUT_WORDS & set(album.split()))
+
+    queries = []
+    if is_debut:
+        queries.append((cleaned_artist, "Pass 0 בכורה"))
+
+    queries += [
+        # Pass 1: עברית מלאה
+        (f"{cleaned_artist} {cleaned_album}".strip(), "Pass 1 עברית"),
+        # Pass 2: אנגלית (אם קיים מיפוי)
         (
             f"{english_artist} {remove_noise(album)}".strip() if english_artist else None,
-            "Strike 2 אנגלית",
+            "Pass 2 אנגלית",
         ),
-        # Strike 3: אמן + 2 מילות האלבום
+        # Pass 3: אמן + 2 מילות האלבום
         (
             f"{cleaned_artist} {first_n_words(cleaned_album, 2)}".strip(),
-            "Strike 3 מצומצם",
+            "Pass 3 מצומצם",
         ),
+        # Pass 4: אמן בלבד
+        (cleaned_artist, "Pass 4 אמן-בלבד"),
     ]
 
     for query, label in queries:
         if not query:
             continue
-        img, price = discogs_search_once(query, label)
+        img, price = discogs_search_once(query, label, artist_hint=hint)
         if img or price:
             return img, price
 
