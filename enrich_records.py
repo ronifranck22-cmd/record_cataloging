@@ -6,23 +6,71 @@ import time
 import re
 
 # ---------------------------------------------------------------------------
-# 1. הגדרות - הדביקי כאן את הטוקן שלך
+# 1. הגדרות
 # ---------------------------------------------------------------------------
 DISCOGS_USER_TOKEN = "QdmqnJOgqYvlMPpkzCmroWPWtKBzGmdeqsVqfgxX"
 
-INPUT_FILE   = "test.csv"
-OUTPUT_FILE  = "enriched_test.csv"
-ROW_LIMIT    = None   # None = כל הקובץ | מספר = רק N שורות ראשונות (לבדיקה)
-DELAY        = 1.5    # שניות בין שורות (Discogs מגביל 60 בקשות/דקה)
+INPUT_FILE  = "test.csv"
+OUTPUT_FILE = "enriched_test.csv"
+ROW_LIMIT   = None    # None = כל הקובץ | מספר = רק N שורות (לבדיקה)
+DELAY       = 1.5     # שניות בין שורות
 
-# מילות רעש שמורידות את איכות החיפוש
-NOISE_WORDS = re.compile(
-    r'\b(דיסקים|CD|מארז|LP|תקליט|תקליטים|סינגל|אלבום|Vol\.?|Volume)\b',
+# ---------------------------------------------------------------------------
+# 2. תיקון שגיאות כתיב ידועות (לפני כל חיפוש)
+# ---------------------------------------------------------------------------
+TYPO_FIX = {
+    "חווה אלבשרטיין": "חווה אלברשטיין",
+    "חווה אלבשרטיין והפלטינה": "חווה אלברשטיין והפלטינה",
+    # הוסיפי כאן שגיאות נוספות לפי הצורך
+}
+
+# ---------------------------------------------------------------------------
+# 3. מיפוי עברית → אנגלית לאמנים ישראלים מרכזיים
+# ---------------------------------------------------------------------------
+HEBREW_TO_ENGLISH = {
+    "חווה אלברשטיין":       "Chava Alberstein",
+    "חווה אלברשטיין והפלטינה": "Chava Alberstein Platina",
+    "שלום חנוך":            "Shalom Hanoch",
+    "אריק איינשטיין":       "Arik Einstein",
+    "יהודית רביץ":          "Yehudit Ravitz",
+    "ריטה":                  "Rita",
+    "אביב גפן":             "Aviv Geffen",
+    "יוסי בנאי":            "Yossi Banai",
+    "משינה":                 "Mashina",
+    "שלמה ארצי":            "Shlomo Artzi",
+    "נורית גלרון":          "Nurit Galron",
+    "דני ליטני":            "Dani Litani",
+    "דודו אלהרר":           "Dudu Elharar",
+    "גדי אלון":             "Gadi Alon",
+    "גבע אלון":             "Geva Alon",
+    "אלג'יר":               "Aljir",
+    "כוורת":                "Kaveret",
+    "להקת הנח"ל":           "Nahal Brigade",
+    "תיסלם":                "Teislem",
+    "יהורם גאון":           "Yehoram Gaon",
+    "נחמה הנדל":            "Nachama Hendel",
+    "אהוד מנור":            "Ehud Manor",
+    "אהוד בנאי":            "Ehud Banai",
+    "דני רובס":             "Danny Robas",
+    "שייקה לוי":            "Shaike Levi",
+    "הדג נחש":              "Hadag Nahash",
+    "אסתר עופרים":          "Esther Ofarim",
+    "ז'אן ז'אק לורן":      "Jean-Jacques Laurent",
+    "ברי סחרוף":            "Berry Sakharof",
+}
+
+# ---------------------------------------------------------------------------
+# 4. מילות רעש להסרה מהחיפוש
+# ---------------------------------------------------------------------------
+NOISE_RE = re.compile(
+    r'\b(\d+|דיסקים|דיסק|CD|מארז|LP|EP|תקליט|תקליטים|תקליטון|'
+    r'סינגל|אלבום|Vol\.?|Volume|הופעה\s*פומבית|הקלטה\s*חיה|'
+    r'מהדורה|מהדורת|מיוחד|מיוחדת|ספרדית|יידיש)\b',
     flags=re.IGNORECASE | re.UNICODE,
 )
 
 # ---------------------------------------------------------------------------
-# התחברות לדיסקוגס
+# Discogs client
 # ---------------------------------------------------------------------------
 d = discogs_client.Client('RecordEnricher/1.0', user_token=DISCOGS_USER_TOKEN)
 
@@ -31,93 +79,120 @@ d = discogs_client.Client('RecordEnricher/1.0', user_token=DISCOGS_USER_TOKEN)
 # ---------------------------------------------------------------------------
 
 def clean(val) -> str:
-    """מנקה ערך — מחזיר מחרוזת ריקה עבור nan/None/ריק."""
     if val is None:
         return ""
     s = str(val).strip()
     return "" if s.lower() in ("none", "nan", "n/a", "") else s
 
 
+def apply_typo_fix(artist: str) -> str:
+    a = artist.strip()
+    return TYPO_FIX.get(a, a)
+
+
 def remove_noise(text: str) -> str:
-    """מסיר מילות רעש וחותך רווחים כפולים."""
-    return re.sub(r'\s+', ' ', NOISE_WORDS.sub('', text)).strip()
+    return re.sub(r'\s+', ' ', NOISE_RE.sub('', text)).strip()
 
 
-def broad_query(artist: str, album: str) -> str:
-    """שלושת המילים הראשונות של האלבום + אמן — לחיפוש מרוחב."""
-    first_words = ' '.join(album.split()[:3])
-    return f"{artist} {first_words}".strip()
+def first_n_words(text: str, n: int) -> str:
+    return ' '.join(text.split()[:n])
 
 
-# ---------------------------------------------------------------------------
-# חיפוש בדיסקוגס — Smart Search עם fallback מרוחב
-# ---------------------------------------------------------------------------
+def discogs_search_once(query: str, label: str):
+    """
+    מחפש פעם אחת בדיסקוגס.
+    מחזיר (image_url, price_str) או (None, None).
+    """
+    print(f'    [{label}] שולח לדיסקוגס: "{query}"')
+    try:
+        results = d.search(query, type='release')
+        count = results.count
+        print(f'    ← {count} תוצאות')
+        if count == 0:
+            return None, None
+
+        release = results[0]
+        img = release.thumb or None
+
+        price_str = None
+        try:
+            stats = release.fetch('stats') or {}
+            lp = stats.get('lowest_price') or {}
+            val = lp.get('value') if isinstance(lp, dict) else None
+            cur = lp.get('currency', '') if isinstance(lp, dict) else ''
+            if val is not None:
+                price_str = f"{val} {cur}".strip()
+        except Exception:
+            pass
+
+        return img, price_str
+
+    except Exception as e:
+        print(f'    ⚠ שגיאת Discogs: {e}')
+        return None, None
+
 
 def get_discogs_data(artist: str, album: str):
     """
-    מחזיר (image_url, price_str) או (None, None) אם לא נמצא.
-    אסטרטגיה:
-      1. query מלא: "{artist} {album}" ← מחקה את שורת החיפוש של האתר
-      2. אם 0 תוצאות → broad query: artist + 3 מילות האלבום הראשונות
+    Three-Strikes Search:
+      Strike 1 — עברית מלאה (מנוקה)
+      Strike 2 — אנגלית (אם יש מיפוי) + אלבום
+      Strike 3 — אמן בלבד + 2 מילות האלבום הראשונות
     """
-    for attempt, query in enumerate([
-        remove_noise(f"{artist} {album}").strip(),
-        remove_noise(broad_query(artist, album)),
-    ], start=1):
+    cleaned_album  = remove_noise(album)
+    cleaned_artist = remove_noise(artist)
+    english_artist = HEBREW_TO_ENGLISH.get(artist.strip())
+
+    queries = [
+        # Strike 1: עברית מלאה
+        (f"{cleaned_artist} {cleaned_album}".strip(), "Strike 1 עברית"),
+        # Strike 2: אנגלית (אם קיים מיפוי)
+        (
+            f"{english_artist} {remove_noise(album)}".strip() if english_artist else None,
+            "Strike 2 אנגלית",
+        ),
+        # Strike 3: אמן + 2 מילות האלבום
+        (
+            f"{cleaned_artist} {first_n_words(cleaned_album, 2)}".strip(),
+            "Strike 3 מצומצם",
+        ),
+    ]
+
+    for query, label in queries:
         if not query:
             continue
+        img, price = discogs_search_once(query, label)
+        if img or price:
+            return img, price
 
-        label = "מלא" if attempt == 1 else "מרוחב"
-        print(f'    [{label}] שולח לדיסקוגס: "{query}"')
-
-        try:
-            results = d.search(query, type='release')
-            count = results.count
-            print(f'    ← {count} תוצאות')
-
-            if count == 0:
-                continue  # מנסה את ה-fallback
-
-            release = results[0]
-            img = release.thumb or None
-
-            # מחיר: marketplace_stats
-            price_str = None
-            try:
-                stats = release.fetch('stats') or {}
-                lp = stats.get('lowest_price') or {}
-                val = lp.get('value') if isinstance(lp, dict) else None
-                cur = lp.get('currency', '') if isinstance(lp, dict) else ''
-                if val is not None:
-                    price_str = f"{val} {cur}".strip()
-            except Exception:
-                pass
-
-            return img, price_str
-
-        except Exception as e:
-            print(f'    ⚠ שגיאת Discogs: {e}')
-            continue
-
-    return None, None   # שני הניסיונות נכשלו
+    return None, None
 
 
 # ---------------------------------------------------------------------------
-# Fallback — גירוד מ-Stereo-Ve-Mono
+# Fallback — Stereo-Ve-Mono
 # ---------------------------------------------------------------------------
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0 Safari/537.36"
+    )
+}
 
 def scrape_stereo_ve_mono(artist: str, album: str) -> str | None:
-    """מחפש תמונה ב-stereo-ve-mono.com."""
-    query = remove_noise(f"{artist} {album}").strip()
+    # מחפש בשם העברי המקורי (הכי רלוונטי לאתר הישראלי הזה)
+    query = f"{artist} {album}".strip()
     if not query:
         return None
 
+    print(f'    [Stereo-Ve-Mono] מחפש: "{query}"')
     try:
         resp = requests.get(
             "https://stereo-ve-mono.com/",
             params={"s": query},
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=10,
+            headers=HEADERS,
+            timeout=12,
         )
         resp.raise_for_status()
         soup = BeautifulSoup(resp.content, "html.parser")
@@ -125,12 +200,15 @@ def scrape_stereo_ve_mono(artist: str, album: str) -> str | None:
         img_tag = (
             soup.select_one(".products .attachment-woocommerce_thumbnail")
             or soup.select_one(".woocommerce-loop-product__link img")
+            or soup.select_one(".wp-post-image")
             or soup.select_one("article img")
         )
         if img_tag:
             src = img_tag.get("src") or img_tag.get("data-src", "")
             if src.startswith("http"):
+                print(f"    ← תמונה נמצאה ב-Stereo-Ve-Mono")
                 return src
+
     except Exception as e:
         print(f'    ⚠ שגיאת Stereo-Ve-Mono: {e}')
 
@@ -148,39 +226,42 @@ total = len(df)
 if 'image_url'    not in df.columns: df['image_url']    = ""
 if 'market_price' not in df.columns: df['market_price'] = ""
 
-print(f"🚀 מתחיל הרצה על {total} רשומות...")
-print(f"   קובץ קלט:  {INPUT_FILE}")
-print(f"   קובץ פלט:  {OUTPUT_FILE}\n")
+print(f"🚀 מתחיל הרצה על {total} רשומות מתוך '{INPUT_FILE}'")
+print(f"   פלט: {OUTPUT_FILE}\n")
 
 for idx, row in df.iterrows():
     row_num = idx + 1
-    artist  = clean(row.get('artist'))
-    album   = clean(row.get('name'))
+    raw_artist = clean(row.get('artist'))
+    album      = clean(row.get('name'))
+
+    # תיקון שגיאות כתיב
+    artist = apply_typo_fix(raw_artist)
+    if artist != raw_artist:
+        print(f"  [תיקון כתיב] '{raw_artist}' → '{artist}'")
+
     print(f"\nשורה {row_num}/{total}: {artist} — {album}")
 
-    # ── ניסיון 1: Discogs ──────────────────────────────────────────────────
+    # ── Three-Strikes בדיסקוגס ─────────────────────────────────────────
     img, price = get_discogs_data(artist, album)
 
-    # ── ניסיון 2: Stereo-Ve-Mono (אם אין תמונה) ───────────────────────────
+    # ── Fallback: Stereo-Ve-Mono ────────────────────────────────────────
     if not img:
-        print("    → אין תמונה בדיסקוגס, מנסה Stereo-Ve-Mono...")
-        img = scrape_stereo_ve_mono(artist, album)
-        if img:
-            print(f"    ← תמונה נמצאה ב-Stereo-Ve-Mono")
+        img = scrape_stereo_ve_mono(raw_artist, album)  # שם עברי מקורי
 
-    # ── עדכון ─────────────────────────────────────────────────────────────
-    df.at[idx, 'image_url']    = img    if img    else "Not Found"
-    df.at[idx, 'market_price'] = price  if price  else "N/A"
+    # ── שמירה ──────────────────────────────────────────────────────────
+    df.at[idx, 'image_url']    = img   if img   else "Not Found"
+    df.at[idx, 'market_price'] = price if price else "N/A"
 
-    img_icon   = "✅" if img    else "❌"
-    price_icon = "✅" if price  else "❌"
+    img_icon   = "✅" if img   else "❌"
+    price_icon = "✅" if price else "❌"
     print(f"    תמונה {img_icon}  |  מחיר {price_icon} {price or 'N/A'}")
 
     # שמירה אחרי כל שורה — כדי שלא תאבדי נתונים אם הסקריפט נקטע
     df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
+
     time.sleep(DELAY)
 
-# סיכום סופי
+# ── סיכום ──────────────────────────────────────────────────────────────────
 found_img   = (df['image_url']    != "Not Found").sum()
 found_price = (df['market_price'] != "N/A").sum()
 print(f"\n✨ סיימתי! {OUTPUT_FILE} מוכן.")
