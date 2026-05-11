@@ -116,6 +116,74 @@ def first_n_words(text: str, n: int) -> str:
     return ' '.join(text.split()[:n])
 
 
+def get_price(release) -> str | None:
+    """
+    ניסיון רב-שלבי לקבלת מחיר:
+      1. marketplace_stats ישירות על אובייקט התוצאה
+      2. שליפת release מלאה לפי ID + marketplace_stats
+      3. master release marketplace_stats
+      4. price_suggestions (ממוצע עסקאות עבר) כ-fallback
+    """
+    release_id = getattr(release, 'id', None)
+
+    # ── Method 1: marketplace_stats על תוצאת החיפוש ──────────────────────
+    try:
+        ms = release.marketplace_stats
+        if ms and ms.lowest_price:
+            v, c = ms.lowest_price.value, ms.lowest_price.currency
+            print(f"    💰 Price Found: {v} {c}")
+            return f"{v} {c}"
+    except Exception:
+        pass
+
+    # ── Method 2: שליפת release מלאה לפי ID ─────────────────────────────
+    if release_id:
+        try:
+            full = d.release(release_id)
+            ms = full.marketplace_stats
+            if ms and ms.lowest_price:
+                v, c = ms.lowest_price.value, ms.lowest_price.currency
+                print(f"    💰 Price Found (full fetch): {v} {c}")
+                return f"{v} {c}"
+        except Exception:
+            pass
+
+    # ── Method 3: master release ──────────────────────────────────────────
+    try:
+        master = getattr(release, 'master', None)
+        if master:
+            ms = master.marketplace_stats
+            if ms and ms.lowest_price:
+                v, c = ms.lowest_price.value, ms.lowest_price.currency
+                print(f"    💰 Price Found (master): ~{v} {c}")
+                return f"~{v} {c}"
+    except Exception:
+        pass
+
+    # ── Method 4: price_suggestions (ממוצע עסקאות עבר) ──────────────────
+    if release_id:
+        try:
+            full = d.release(release_id)
+            suggestions = full.price_suggestions
+            if suggestions:
+                for condition in [
+                    'Near Mint (NM or M-)',
+                    'Very Good Plus (VG+)',
+                    'Very Good (VG)',
+                    'Good Plus (G+)',
+                ]:
+                    if condition in suggestions:
+                        p = suggestions[condition]
+                        short = condition.split('(')[1].rstrip(')')
+                        print(f"    💰 Price Found (suggested {short}): ~{p.value} {p.currency}")
+                        return f"~{p.value} {p.currency} ({short})"
+        except Exception:
+            pass
+
+    print("    ℹ No active listings on Marketplace")
+    return None
+
+
 def discogs_search_once(query: str, label: str, artist_hint: str = ""):
     """
     מחפש פעם אחת בדיסקוגס.
@@ -146,18 +214,8 @@ def discogs_search_once(query: str, label: str, artist_hint: str = ""):
                 best_release = rel
                 break  # מצאנו התאמה טובה
 
-        img = best_release.thumb or None
-
-        price_str = None
-        try:
-            stats = best_release.fetch('stats') or {}
-            lp = stats.get('lowest_price') or {}
-            val = lp.get('value') if isinstance(lp, dict) else None
-            cur = lp.get('currency', '') if isinstance(lp, dict) else ''
-            if val is not None:
-                price_str = f"{val} {cur}".strip()
-        except Exception:
-            pass
+        img       = best_release.thumb or None
+        price_str = get_price(best_release)
 
         return img, price_str
 
