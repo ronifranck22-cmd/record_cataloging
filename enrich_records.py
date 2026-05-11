@@ -1,190 +1,188 @@
-"""
-enrich_records.py — Vinyl Record Data Enrichment Script
-========================================================
-Reads test.csv, enriches each row with:
-  - image_url   : album cover from Discogs (or Stereo-Ve-Mono fallback)
-  - market_price: lowest marketplace price from Discogs (or "N/A")
-
-Output: enriched_test.csv (all original columns preserved)
-
-Setup:
-  pip install discogs-client pandas requests beautifulsoup4
-  Then paste your Discogs Personal Access Token below.
-"""
-
-import time
 import pandas as pd
+import discogs_client
 import requests
 from bs4 import BeautifulSoup
-import discogs_client
+import time
+import re
 
 # ---------------------------------------------------------------------------
-# CONFIG — paste your Discogs Personal Access Token here
+# 1. הגדרות - הדביקי כאן את הטוקן שלך
 # ---------------------------------------------------------------------------
-DISCOGS_USER_TOKEN = "YOUR_DISCOGS_TOKEN_HERE"
+DISCOGS_USER_TOKEN = "QdmqnJOgqYvlMPpkzCmroWPWtKBzGmdeqsVqfgxX"
 
-INPUT_FILE  = "test.csv"
-OUTPUT_FILE = "enriched_test.csv"
+INPUT_FILE   = "test.csv"
+OUTPUT_FILE  = "enriched_test.csv"
+ROW_LIMIT    = None   # None = כל הקובץ | מספר = רק N שורות ראשונות (לבדיקה)
+DELAY        = 1.5    # שניות בין שורות (Discogs מגביל 60 בקשות/דקה)
 
-DELAY_SECONDS = 1.5          # stay well under 60 req/min
-REQUEST_TIMEOUT = 8          # seconds before giving up on a web request
-MAX_DISCOGS_RESULTS = 3      # how many Discogs results to inspect before giving up
-
-# ---------------------------------------------------------------------------
-# Discogs client init
-# ---------------------------------------------------------------------------
-d = discogs_client.Client(
-    "VinylEnricher/1.0",
-    user_token=DISCOGS_USER_TOKEN,
+# מילות רעש שמורידות את איכות החיפוש
+NOISE_WORDS = re.compile(
+    r'\b(דיסקים|CD|מארז|LP|תקליט|תקליטים|סינגל|אלבום|Vol\.?|Volume)\b',
+    flags=re.IGNORECASE | re.UNICODE,
 )
 
 # ---------------------------------------------------------------------------
-# Helpers
+# התחברות לדיסקוגס
+# ---------------------------------------------------------------------------
+d = discogs_client.Client('RecordEnricher/1.0', user_token=DISCOGS_USER_TOKEN)
+
+# ---------------------------------------------------------------------------
+# פונקציות עזר
 # ---------------------------------------------------------------------------
 
-def _clean(val) -> str:
-    """Return a clean string or empty string for None/NaN values."""
+def clean(val) -> str:
+    """מנקה ערך — מחזיר מחרוזת ריקה עבור nan/None/ריק."""
     if val is None:
         return ""
     s = str(val).strip()
-    return "" if s.lower() in ("none", "nan", "n/a") else s
+    return "" if s.lower() in ("none", "nan", "n/a", "") else s
 
 
-def search_discogs(artist: str, album: str) -> tuple[str, str]:
+def remove_noise(text: str) -> str:
+    """מסיר מילות רעש וחותך רווחים כפולים."""
+    return re.sub(r'\s+', ' ', NOISE_WORDS.sub('', text)).strip()
+
+
+def broad_query(artist: str, album: str) -> str:
+    """שלושת המילים הראשונות של האלבום + אמן — לחיפוש מרוחב."""
+    first_words = ' '.join(album.split()[:3])
+    return f"{artist} {first_words}".strip()
+
+
+# ---------------------------------------------------------------------------
+# חיפוש בדיסקוגס — Smart Search עם fallback מרוחב
+# ---------------------------------------------------------------------------
+
+def get_discogs_data(artist: str, album: str):
     """
-    Search Discogs for artist+album.
-    Returns (image_url, market_price) — both "N/A" if nothing found.
+    מחזיר (image_url, price_str) או (None, None) אם לא נמצא.
+    אסטרטגיה:
+      1. query מלא: "{artist} {album}" ← מחקה את שורת החיפוש של האתר
+      2. אם 0 תוצאות → broad query: artist + 3 מילות האלבום הראשונות
     """
-    image_url    = "N/A"
-    market_price = "N/A"
+    for attempt, query in enumerate([
+        remove_noise(f"{artist} {album}").strip(),
+        remove_noise(broad_query(artist, album)),
+    ], start=1):
+        if not query:
+            continue
 
-    if not artist and not album:
-        return image_url, market_price
+        label = "מלא" if attempt == 1 else "מרוחב"
+        print(f'    [{label}] שולח לדיסקוגס: "{query}"')
 
-    query = f"{artist} {album}".strip()
+        try:
+            results = d.search(query, type='release')
+            count = results.count
+            print(f'    ← {count} תוצאות')
 
-    try:
-        results = d.search(query, type="release")
-        for i, release in enumerate(results):
-            if i >= MAX_DISCOGS_RESULTS:
-                break
+            if count == 0:
+                continue  # מנסה את ה-fallback
 
-            # --- Image ---
-            if image_url == "N/A":
-                thumb = getattr(release, "thumb", None)
-                if thumb and thumb.startswith("http"):
-                    # Prefer the full image over the 150px thumb
-                    images = getattr(release.data, "get", lambda k, d=None: d)("images", [])
-                    if images and isinstance(images, list) and images[0].get("uri"):
-                        image_url = images[0]["uri"]
-                    elif thumb:
-                        image_url = thumb
+            release = results[0]
+            img = release.thumb or None
 
-            # --- Price ---
-            if market_price == "N/A":
-                try:
-                    stats = release.marketplace_stats
-                    if stats and stats.lowest_price:
-                        market_price = f"{stats.lowest_price.value} {stats.lowest_price.currency}"
-                except Exception:
-                    pass
+            # מחיר: marketplace_stats
+            price_str = None
+            try:
+                stats = release.fetch('stats') or {}
+                lp = stats.get('lowest_price') or {}
+                val = lp.get('value') if isinstance(lp, dict) else None
+                cur = lp.get('currency', '') if isinstance(lp, dict) else ''
+                if val is not None:
+                    price_str = f"{val} {cur}".strip()
+            except Exception:
+                pass
 
-            if image_url != "N/A" and market_price != "N/A":
-                break  # got everything we need
+            return img, price_str
 
-    except Exception as e:
-        print(f"    ⚠ Discogs error: {e}")
+        except Exception as e:
+            print(f'    ⚠ שגיאת Discogs: {e}')
+            continue
 
-    return image_url, market_price
+    return None, None   # שני הניסיונות נכשלו
 
 
-def search_stereo_ve_mono(artist: str, album: str) -> str:
-    """
-    Fallback: scrape https://stereo-ve-mono.com/ for an image URL.
-    Returns image URL string or "N/A".
-    """
-    query = f"{artist} {album}".strip()
+# ---------------------------------------------------------------------------
+# Fallback — גירוד מ-Stereo-Ve-Mono
+# ---------------------------------------------------------------------------
+
+def scrape_stereo_ve_mono(artist: str, album: str) -> str | None:
+    """מחפש תמונה ב-stereo-ve-mono.com."""
+    query = remove_noise(f"{artist} {album}").strip()
     if not query:
-        return "N/A"
+        return None
 
     try:
         resp = requests.get(
             "https://stereo-ve-mono.com/",
             params={"s": query},
-            timeout=REQUEST_TIMEOUT,
-            headers={"User-Agent": "VinylEnricher/1.0"},
+            headers={"User-Agent": "Mozilla/5.0"},
+            timeout=10,
         )
         resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
+        soup = BeautifulSoup(resp.content, "html.parser")
 
-        # Site uses standard WooCommerce / WordPress structure
-        # Try product thumbnails first, then any <img> inside an article
         img_tag = (
             soup.select_one(".products .attachment-woocommerce_thumbnail")
+            or soup.select_one(".woocommerce-loop-product__link img")
             or soup.select_one("article img")
-            or soup.select_one(".post img")
         )
         if img_tag:
             src = img_tag.get("src") or img_tag.get("data-src", "")
             if src.startswith("http"):
                 return src
-
     except Exception as e:
-        print(f"    ⚠ Stereo-Ve-Mono error: {e}")
+        print(f'    ⚠ שגיאת Stereo-Ve-Mono: {e}')
 
-    return "N/A"
+    return None
 
 
 # ---------------------------------------------------------------------------
-# Main
+# הרצה ראשית
 # ---------------------------------------------------------------------------
 
-def main():
-    df = pd.read_csv(INPUT_FILE, dtype=str)
-    total = len(df)
-    print(f"Loaded {total} rows from '{INPUT_FILE}'.\n")
+df_full = pd.read_csv(INPUT_FILE, dtype=str)
+df = df_full.head(ROW_LIMIT).copy() if ROW_LIMIT else df_full.copy()
+total = len(df)
 
-    image_urls    = []
-    market_prices = []
+if 'image_url'    not in df.columns: df['image_url']    = ""
+if 'market_price' not in df.columns: df['market_price'] = ""
 
-    for idx, row in df.iterrows():
-        row_num = idx + 1
-        artist = _clean(row.get("artist"))
-        album  = _clean(row.get("name"))
-        label  = f"{artist} — {album}" if artist or album else "(no data)"
+print(f"🚀 מתחיל הרצה על {total} רשומות...")
+print(f"   קובץ קלט:  {INPUT_FILE}")
+print(f"   קובץ פלט:  {OUTPUT_FILE}\n")
 
-        print(f"Row {row_num}/{total}: Searching for {label} ...")
+for idx, row in df.iterrows():
+    row_num = idx + 1
+    artist  = clean(row.get('artist'))
+    album   = clean(row.get('name'))
+    print(f"\nשורה {row_num}/{total}: {artist} — {album}")
 
-        # --- Primary: Discogs ---
-        img, price = search_discogs(artist, album)
+    # ── ניסיון 1: Discogs ──────────────────────────────────────────────────
+    img, price = get_discogs_data(artist, album)
 
-        # --- Fallback image: Stereo-Ve-Mono ---
-        if img == "N/A":
-            print(f"    → No Discogs image, trying Stereo-Ve-Mono ...")
-            img = search_stereo_ve_mono(artist, album)
+    # ── ניסיון 2: Stereo-Ve-Mono (אם אין תמונה) ───────────────────────────
+    if not img:
+        print("    → אין תמונה בדיסקוגס, מנסה Stereo-Ve-Mono...")
+        img = scrape_stereo_ve_mono(artist, album)
+        if img:
+            print(f"    ← תמונה נמצאה ב-Stereo-Ve-Mono")
 
-        # --- Result summary ---
-        img_status   = "✓ image"   if img   != "N/A" else "✗ no image"
-        price_status = f"✓ {price}" if price != "N/A" else "✗ no price"
-        print(f"    {img_status}  |  {price_status}")
+    # ── עדכון ─────────────────────────────────────────────────────────────
+    df.at[idx, 'image_url']    = img    if img    else "Not Found"
+    df.at[idx, 'market_price'] = price  if price  else "N/A"
 
-        image_urls.append(img)
-        market_prices.append(price)
+    img_icon   = "✅" if img    else "❌"
+    price_icon = "✅" if price  else "❌"
+    print(f"    תמונה {img_icon}  |  מחיר {price_icon} {price or 'N/A'}")
 
-        time.sleep(DELAY_SECONDS)
+    # שמירה אחרי כל שורה — כדי שלא תאבדי נתונים אם הסקריפט נקטע
+    df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
+    time.sleep(DELAY)
 
-    df["image_url"]    = image_urls
-    df["market_price"] = market_prices
-
-    df.to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig")
-    print(f"\n✅ Done. Output saved to '{OUTPUT_FILE}'.")
-
-    # Quick summary
-    found_img   = sum(1 for v in image_urls    if v != "N/A")
-    found_price = sum(1 for v in market_prices if v != "N/A")
-    print(f"   Images found  : {found_img}/{total}")
-    print(f"   Prices found  : {found_price}/{total}")
-
-
-if __name__ == "__main__":
-    main()
+# סיכום סופי
+found_img   = (df['image_url']    != "Not Found").sum()
+found_price = (df['market_price'] != "N/A").sum()
+print(f"\n✨ סיימתי! {OUTPUT_FILE} מוכן.")
+print(f"   תמונות נמצאו : {found_img}/{total}")
+print(f"   מחירים נמצאו : {found_price}/{total}")
