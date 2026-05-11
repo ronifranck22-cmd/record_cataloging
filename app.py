@@ -406,16 +406,18 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Global Background Watermark
+# Global Background Watermark — desktop only (hidden on mobile)
 if BG_BASE64:
     st.markdown(
         f"""
         <style>
-        .stApp {{
-            background-image: linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.88)), url("data:image/png;base64,{BG_BASE64}") !important;
-            background-size: cover !important;
-            background-position: center !important;
-            background-attachment: fixed !important;
+        @media (min-width: 768px) {{
+            .stApp {{
+                background-image: linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.88)), url("data:image/png;base64,{BG_BASE64}") !important;
+                background-size: cover !important;
+                background-position: center !important;
+                background-attachment: fixed !important;
+            }}
         }}
         </style>
         """,
