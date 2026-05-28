@@ -519,6 +519,13 @@ def load_data():
 def refresh():
     load_data()
 
+def reset_all_filters():
+    """Safe callback for the Reset button — runs before the script re-renders."""
+    st.session_state["search_input"] = ""
+    st.session_state["artist_select"] = []
+    st.session_state["letter_select"] = []
+    load_data()
+
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
 
@@ -706,14 +713,9 @@ with st.sidebar:
     letters = sorted(df["id_letter"].dropna().unique()) if not df.empty else []
     st.multiselect("סנן לפי אות", letters, key="letter_select")
 
-    # Reset Button via State
+    # Reset Button — uses on_click callback to avoid StreamlitAPIException
     st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
-    if st.button("אפס סינונים ורענן", use_container_width=True):
-        st.session_state["search_input"] = ""
-        st.session_state["artist_select"] = []
-        st.session_state["letter_select"] = []
-        refresh()
-        st.rerun()
+    st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
 
 # ---------------------------------------------------------------------------
 # Apply Global Filters to working dataset

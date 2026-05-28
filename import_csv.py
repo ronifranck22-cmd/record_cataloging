@@ -20,8 +20,7 @@ from dotenv import load_dotenv
 from record_store import generate_sorting_key, process_record_fields
 
 # --- Configuration ---
-#CSV_PATH = Path(__file__).parent / "records.csv"
-CSV_PATH = Path(__file__).parent / "test.csv"
+CSV_PATH = Path(__file__).parent / "records_full_headed.csv"
 
 COLLECTION = "records"
 
