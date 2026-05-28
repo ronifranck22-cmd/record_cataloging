@@ -1,21 +1,29 @@
-# Virtual environments
+# ── Virtual environments ────────────────────────────────────────────────────
 venv*/
 .venv/
 
-# Python
+# ── Python bytecode ─────────────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 
-# Streamlit secrets (contains Firebase credentials)
+# ── Streamlit secrets (NEVER commit — contains Firebase credentials) ─────────
 .streamlit/secrets.toml
 
-# IDE
+# ── Firebase / Google Cloud credentials ─────────────────────────────────────
+*.json
+
+# ── ALL local data files (app reads from Firestore, not CSV/xlsx) ────────────
+*.csv
+*.xlsx
+*.xls
+
+# ── Environment variable files ───────────────────────────────────────────────
+.env
+.env.*
+
+# ── IDE & OS artifacts ───────────────────────────────────────────────────────
 .idea/
 .vscode/
-
-# OS
 .DS_Store
-
-# Google Cloud / Firebase keys
-*.json
+Thumbs.db
