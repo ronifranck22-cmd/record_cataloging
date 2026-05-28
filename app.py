@@ -27,8 +27,6 @@ def get_base64_of_bin_file(bin_file):
 LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 BG_BASE64 = get_base64_of_bin_file('background_pattern.png')
 VINYL_BASE64 = get_base64_of_bin_file('spinning_vinyl_asset.png')
-# Login logo (Prominent)
-LOGO_HTML_LOGIN = f'<div style="text-align: center; width: 100%; margin-top: 5vh; margin-bottom: -12vh;"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 320px;"></div>' if LOGO_BASE64 else ""
 
 # Header Logos (Responsive)
 LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>' if LOGO_BASE64 else ""
@@ -423,65 +421,6 @@ if BG_BASE64:
         """,
         unsafe_allow_html=True,
     )
-
-# ---------------------------------------------------------------------------
-# Password Authentication
-# ---------------------------------------------------------------------------
-
-def check_password():
-    def password_entered():
-        correct_password = st.secrets.get("app_password", "admin123")
-        if st.session_state["password"] == correct_password:
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if st.session_state.get("password_correct", False):
-        return True
-
-    # Inject CSS to center the login screen (ONLY runs when not authenticated)
-    st.markdown(
-        f"""
-        <style>
-        /* Push the password input down and center it horizontally safely */
-        [data-testid="stTextInput"] {{
-            margin-top: 15vh !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            width: 350px !important;
-            max-width: 90% !important;
-        }}
-        /* Ensure the label is visible and right-aligned */
-        [data-testid="stTextInput"] label {{
-            text-align: right !important;
-            display: block !important;
-        }}
-        
-        /* Apply full background only to the login screen */
-        .stApp {{
-            background-image: linear-gradient(rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.88)), url("data:image/png;base64,{BG_BASE64}") !important;
-            background-size: cover !important;
-            background-position: center !important;
-            background-attachment: fixed !important;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-
-    if LOGO_HTML_LOGIN:
-        st.markdown(LOGO_HTML_LOGIN, unsafe_allow_html=True)
-
-    st.text_input("הזינו סיסמא", type="password", on_change=password_entered, key="password")
-    
-    if "password_correct" in st.session_state and not st.session_state["password_correct"]:
-        st.error("סיסמא שגויה, נסו שוב")
-        
-    return False
-
-if not check_password():
-    st.stop()
 
 # ---------------------------------------------------------------------------
 # Init Form State Variables if they don't exist
