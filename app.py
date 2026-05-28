@@ -498,6 +498,8 @@ if "dialog_open" not in st.session_state:
     st.session_state["dialog_open"] = False
 if "drawn_at" not in st.session_state:
     st.session_state["drawn_at"] = 0.0
+if "is_admin" not in st.session_state:
+    st.session_state["is_admin"] = False
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -525,6 +527,12 @@ def reset_all_filters():
     st.session_state["artist_select"] = []
     st.session_state["letter_select"] = []
     load_data()
+
+def set_admin():
+    """Callback: validate admin password and set is_admin flag."""
+    entered = st.session_state.get("admin_input", "")
+    correct = st.secrets.get("app_password", "")
+    st.session_state["is_admin"] = (entered == correct) and bool(correct)
 
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
@@ -717,6 +725,19 @@ with st.sidebar:
     st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
     st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
 
+    # ── Admin login (hidden at the bottom of sidebar) ───────────────────────
+    st.markdown("<hr style='margin: 1.5rem 0 0.5rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
+    st.text_input(
+        "🔐 כניסת מנהל",
+        type="password",
+        key="admin_input",
+        on_change=set_admin,
+        placeholder="סיסמת מנהל...",
+        label_visibility="collapsed",
+    )
+    if st.session_state["is_admin"]:
+        st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
+
 # ---------------------------------------------------------------------------
 # Apply Global Filters to working dataset
 # ---------------------------------------------------------------------------
@@ -886,25 +907,26 @@ with st.container():
 
 
 
-# Row 3: Action Toolbar (The Original 5)
-with st.container():
-    st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
-    if st.button("הוסף רשומה"):
-        add_record_dialog()
-    if st.button("מחק רשומה"):
-        delete_record_dialog()
-    if st.button("עדכון רשומה"):
-        update_record_dialog()
-    if st.button("העלאת קובץ"):
-        upload_csv_dialog()
-        
-    csv_data = df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="⬇️",
-        data=csv_data,
-        file_name="records_backup.csv",
-        mime="text/csv"
-    )
+# Row 3: Action Toolbar — admin-only
+if st.session_state.get("is_admin", False):
+    with st.container():
+        st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
+        if st.button("הוסף רשומה"):
+            add_record_dialog()
+        if st.button("מחק רשומה"):
+            delete_record_dialog()
+        if st.button("עדכון רשומה"):
+            update_record_dialog()
+        if st.button("העלאת קובץ"):
+            upload_csv_dialog()
+
+        csv_data = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇️",
+            data=csv_data,
+            file_name="records_backup.csv",
+            mime="text/csv"
+        )
 
 # Row 4: Data Info & Checkbox (Table Controls Line)
 with st.container():
@@ -937,30 +959,39 @@ else:
         "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
     }
 
-    # hide_index=True strips the Serial Number exactly as requested.
-    edited_df = st.data_editor(
-        display_df,
-        column_config=column_config,
-        use_container_width=True,
-        hide_index=True,  
-        num_rows="fixed",
-        height=320,  # Reduced heavily to ensure no page scroll on 100% zoom
-        key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
-    )
-
-    if not display_df.equals(edited_df):
-        if st.button("שמור שינויים", type="primary"):
-            for idx in edited_df.index:
-                original_row = display_df.loc[idx]
-                edited_row = edited_df.loc[idx]
-                if not original_row.equals(edited_row):
-                    doc_id = filtered_df.loc[idx, "id"]
-                    changes = edited_row.to_dict()
-                    if "box" in changes:
-                        changes["box"] = int(changes["box"])
-                    record_store.update(db, doc_id, changes)
-            load_data()  
-            st.rerun()
+    if st.session_state.get("is_admin", False):
+        # Admin: editable table with save button
+        edited_df = st.data_editor(
+            display_df,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            height=320,
+            key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
+        )
+        if not display_df.equals(edited_df):
+            if st.button("שמור שינויים", type="primary"):
+                for idx in edited_df.index:
+                    original_row = display_df.loc[idx]
+                    edited_row = edited_df.loc[idx]
+                    if not original_row.equals(edited_row):
+                        doc_id = filtered_df.loc[idx, "id"]
+                        changes = edited_row.to_dict()
+                        if "box" in changes:
+                            changes["box"] = int(changes["box"])
+                        record_store.update(db, doc_id, changes)
+                load_data()
+                st.rerun()
+    else:
+        # Public: strict read-only table — no editing, no download
+        st.dataframe(
+            display_df,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            height=320,
+        )
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
