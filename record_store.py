@@ -14,6 +14,10 @@ COLLECTION = "records"
 
 FIELDS = ["box", "id_letter", "artist", "name", "notes"]
 
+# Extra fields stored in Firestore but never shown as table columns.
+# They are preserved through get_all() for use by the detail popup and sync logic.
+EXTRA_FIELDS = ["image_url", "image_synced"]
+
 def normalize_hebrew_text(text: str) -> tuple[str, str]:
     """
     Returns (translated_text, first_letter)
@@ -116,9 +120,19 @@ def generate_sorting_key(id_letter: str, artist: str, name: str) -> str:
 # Read
 # ---------------------------------------------------------------------------
 
-def get_all(db) -> pd.DataFrame:
-    """Fetch all records ordered by sorting_key to perform Pandas filters."""
+def get_all(db, limit: int | None = None) -> pd.DataFrame:
+    """Fetch records ordered by sorting_key.
+
+    Parameters
+    ----------
+    limit:
+        Cap the Firestore stream to this many documents.  ``None`` fetches
+        everything (used by the admin bulk-sync CLI).  Pass an integer to
+        protect against daily quota exhaustion on cold starts.
+    """
     query = db.collection(COLLECTION).order_by("sorting_key")
+    if limit is not None:
+        query = query.limit(limit)
     docs = list(query.stream())
     
     rows = []
@@ -127,19 +141,35 @@ def get_all(db) -> pd.DataFrame:
         data["id"] = doc.id
         rows.append(data)
 
+    all_cols = FIELDS + EXTRA_FIELDS
+
     if not rows:
-        return pd.DataFrame(columns=["id", "sorting_key"] + FIELDS)
+        return pd.DataFrame(columns=["id", "sorting_key"] + all_cols)
 
     df = pd.DataFrame(rows)
-    for col in FIELDS + ["sorting_key"]:
+    for col in all_cols + ["sorting_key"]:
         if col not in df.columns:
             df[col] = None
             
-    ordered_cols = ["id", "sorting_key"] + FIELDS
+    ordered_cols = ["id", "sorting_key"] + all_cols
     ordered_cols = [c for c in ordered_cols if c in df.columns]
     
     df = df[ordered_cols]
     return df
+
+
+def get_unsynced(db) -> list[dict]:
+    """Return records that have an image_url but haven't been synced to Drive yet.
+    Used by image_sync.py bulk script — does a full collection scan.
+    """
+    docs = list(db.collection(COLLECTION).stream())
+    result = []
+    for doc in docs:
+        data = doc.to_dict()
+        data["id"] = doc.id
+        if data.get("image_url") and not data.get("image_synced"):
+            result.append(data)
+    return result
 
 
 # ---------------------------------------------------------------------------

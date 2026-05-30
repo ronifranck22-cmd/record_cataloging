@@ -12,6 +12,9 @@ import base64
 
 from db_client import get_db
 import record_store
+from drive_backup import upload_backup_to_drive, build_drive_service
+from image_sync import sync_single_record
+from google.api_core.exceptions import ResourceExhausted
 
 # ---------------------------------------------------------------------------
 # Logo Processing (Base64 for inline embedding)
@@ -439,6 +442,8 @@ if "drawn_at" not in st.session_state:
     st.session_state["drawn_at"] = 0.0
 if "is_admin" not in st.session_state:
     st.session_state["is_admin"] = False
+if "detail_record" not in st.session_state:
+    st.session_state["detail_record"] = None
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -452,9 +457,30 @@ db = init_db()
 # ---------------------------------------------------------------------------
 # State helpers & Fetch
 # ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=3600)
+def _fetch_all_records():
+    """Cached Firestore read — at most one round-trip per hour per server instance.
+
+    Limited to 500 records per cold start to protect the daily free-tier quota
+    (50,000 reads / 500 per fetch = 100 cold starts before exhaustion).
+
+    On ResourceExhausted (429) the cache stores an empty DataFrame so the UI
+    stays alive with a warning rather than hard-crashing the app.
+
+    Call st.cache_data.clear() before load_data() whenever data is mutated.
+    """
+    try:
+        return record_store.get_all(init_db(), limit=500)
+    except ResourceExhausted:
+        _empty_cols = ["id", "sorting_key"] + record_store.FIELDS + record_store.EXTRA_FIELDS
+        return pd.DataFrame(columns=_empty_cols)
+
 def load_data():
-    df = record_store.get_all(db)
+    """Populate session state from the cache (or Firestore on first/post-mutation run)."""
+    df = _fetch_all_records()
     st.session_state["df"] = df
+    st.session_state["_quota_exhausted"] = df.empty and "id" in df.columns
     st.session_state["current_page"] = 0
 
 def refresh():
@@ -477,6 +503,19 @@ if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
 
 df = st.session_state["df"]
+
+# Show a visible banner when the daily Firestore quota is exhausted so the
+# app stays alive rather than crashing.  The banner auto-disappears once
+# the quota resets and the cache is cleared.
+if st.session_state.get("_quota_exhausted"):
+    st.warning(
+        "⚠️ מכסת הקריאות היומית של מסד הנתונים מוצתה (שגיאה 429). "
+        "הטבלה תוצג שוב אוטומטית לאחר איפוס המכסה (בדרך כלל חצות שעון פסיפיק). "
+        "אין צורך בפעולה נוספת.",
+        icon=None,
+    )
+
+
 
 # ---------------------------------------------------------------------------
 # Sidebar — Power Numbers & Filters (GLOBAL)
@@ -707,9 +746,67 @@ if st.session_state["current_page"] > MAX_PAGE:
 
 
 # ---------------------------------------------------------------------------
-# Dialog modals
+# Album detail popup — triggered by table row clicks
 # ---------------------------------------------------------------------------
 
+@st.dialog("🎧 פרטי האלבום")
+def show_record_detail(record: dict) -> None:
+    """
+    Modular record detail popup.  Called with a full record dict
+    (including image_url / image_synced if available).
+    """
+    image_url  = (record.get("image_url")  or "").strip()
+    artist     = (record.get("artist")     or "לא ידוע").strip()
+    name       = (record.get("name")       or "לא ידוע").strip()
+    box        = record.get("box", "")
+    id_letter  = (record.get("id_letter")  or "").strip()
+    notes      = (record.get("notes")      or "").strip()
+
+    # ── Album cover ────────────────────────────────────────────────────────
+    if image_url:
+        try:
+            st.image(image_url, use_container_width=True)
+        except Exception:
+            st.caption("🎶 תמונה לא זמינה")
+    else:
+        st.markdown(
+            """
+            <div style="
+                background: linear-gradient(135deg,#9DBCE3 0%,#c7ddf5 100%);
+                border-radius:12px; height:160px;
+                display:flex; align-items:center; justify-content:center;
+                font-size:3rem;">
+            🏀
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    # ── Metadata ───────────────────────────────────────────────────────────
+    location = f"קופסא {box}"
+    if id_letter:
+        location += f" &nbsp;•&nbsp; אות {id_letter}"
+
+    st.markdown(
+        f"""
+        <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
+            <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
+            <p style="margin:0; color:#8292A1; font-size:0.9rem;">{artist}</p>
+            <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
+            {'<p style="margin:0.4rem 0 0; font-size:0.85rem;">'+notes+'</p>' if notes else ''}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
+    if st.button("✕ סגור", use_container_width=True):
+        st.session_state["detail_record"] = None
+        st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Add record dialog
+# ---------------------------------------------------------------------------
 @st.dialog("הוספת תקליט חדש")
 def add_record_dialog():
     with st.form("add_form", clear_on_submit=True):
@@ -717,6 +814,7 @@ def add_record_dialog():
         new_artist = st.text_input("שם אומן *")
         new_name = st.text_input("שם התקליט *")
         new_notes = st.text_input("הערות נוספות")
+        new_image_url = st.text_input("כתובת תמונת עטיפה (אופציונלי)", placeholder="https://i.discogs.com/...")
         col_box, col_letter = st.columns(2)
         with col_box:
             new_box = st.number_input("קופסא", min_value=1, step=1, value=1)
@@ -728,14 +826,40 @@ def add_record_dialog():
             if not new_artist or not new_name:
                 st.error("אנא מלא את השדות החובה.")
             else:
-                record_store.add(db, {
+                new_doc_id = record_store.add(db, {
                     "box": int(new_box),
                     "id_letter": new_id_letter.strip(),
                     "artist": new_artist.strip(),
                     "name": new_name.strip(),
                     "notes": new_notes.strip(),
+                    "image_url": new_image_url.strip() or None,
+                    "image_synced": False,
                 })
+                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
                 load_data()
+                # --- Auto-sync cover image to Drive ---
+                if new_image_url.strip():
+                    with st.spinner("מוריד תמונת עטיפה..."):
+                        try:
+                            drive_svc = build_drive_service(dict(st.secrets["firebase"]))
+                            covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
+                            if covers_folder_id:
+                                sync_single_record(db, drive_svc, new_doc_id, new_image_url.strip(), covers_folder_id)
+                                st.cache_data.clear()  # Refresh after image URL update
+                                load_data()
+                        except Exception:
+                            pass  # Image sync failure is non-fatal
+                # --- Auto-backup to Google Drive ---
+                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
+                if _bk_folder and st.secrets.get("enable_backup", True):
+                    try:
+                        upload_backup_to_drive(
+                            st.session_state["df"],
+                            st.secrets["firebase"],
+                            _bk_folder,
+                        )
+                    except Exception:
+                        pass
                 st.rerun()
 
 @st.dialog("מחיקת תקליט")
@@ -750,7 +874,19 @@ def delete_record_dialog():
     selected_delete = st.selectbox("בחר תקליט", list(delete_options.keys()))
     if st.button("מחק סופית", type="primary", use_container_width=True):
         record_store.delete(db, delete_options[selected_delete])
+        st.cache_data.clear()  # Invalidate cache so next read hits Firestore
         load_data()
+        # --- Auto-backup to Google Drive ---
+        _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
+        if _bk_folder and st.secrets.get("enable_backup", True):
+            try:
+                upload_backup_to_drive(
+                    st.session_state["df"],
+                    st.secrets["firebase"],
+                    _bk_folder,
+                )
+            except Exception:
+                pass
         st.rerun()
 
 @st.dialog("עדכון תקליט")
@@ -773,6 +909,11 @@ def update_record_dialog():
         updated_artist = st.text_input("אמן *", value=selected_record.get("artist", ""))
         updated_name = st.text_input("שם התקליט *", value=selected_record.get("name", ""))
         updated_notes = st.text_input("הערות נוספות", value=selected_record.get("notes", ""))
+        updated_image_url = st.text_input(
+            "כתובת תמונת עטיפה (אופציונלי)",
+            value=selected_record.get("image_url") or "",
+            placeholder="https://i.discogs.com/...",
+        )
         
         col_box, col_letter = st.columns(2)
         with col_box:
@@ -794,11 +935,41 @@ def update_record_dialog():
                 # Only update id_letter if explicitly provided
                 if updated_letter.strip():
                      changes["id_letter"] = updated_letter.strip()
+                # Update image_url if changed; mark as un-synced so bulk sync will re-process
+                new_raw_url = updated_image_url.strip()
+                old_raw_url = (selected_record.get("image_url") or "").strip()
+                if new_raw_url != old_raw_url:
+                    changes["image_url"] = new_raw_url or None
+                    changes["image_synced"] = False
                      
                 record_store.update(db, selected_record["id"], changes)
                 st.success("הרשומה עודכנה בהצלחה!")
                 time.sleep(0.8)
+                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
                 load_data()
+                # --- Auto-sync updated cover image to Drive ---
+                if new_raw_url and new_raw_url != old_raw_url:
+                    with st.spinner("מוריד תמונת עטיפה..."):
+                        try:
+                            drive_svc = build_drive_service(dict(st.secrets["firebase"]))
+                            covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
+                            if covers_folder_id:
+                                sync_single_record(db, drive_svc, selected_record["id"], new_raw_url, covers_folder_id)
+                                st.cache_data.clear()
+                                load_data()
+                        except Exception:
+                            pass  # Image sync failure is non-fatal
+                # --- Auto-backup to Google Drive ---
+                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
+                if _bk_folder and st.secrets.get("enable_backup", True):
+                    try:
+                        upload_backup_to_drive(
+                            st.session_state["df"],
+                            st.secrets["firebase"],
+                            _bk_folder,
+                        )
+                    except Exception:
+                        pass
                 st.rerun()
 
 @st.dialog("העלאת קובץ")
@@ -806,10 +977,13 @@ def upload_csv_dialog():
     st.info("כלי העלאת CSV כרגע לא פעיל בממשק.")
 
 # ---------------------------------------------------------------------------
-# Invoke draw dialog at top level so st.rerun() inside it keeps it alive
+# Invoke dialogs at top level so st.rerun() inside them keeps them alive
 # ---------------------------------------------------------------------------
 if st.session_state.get("dialog_open", False):
     draw_record_dialog()
+
+if st.session_state.get("detail_record") is not None:
+    show_record_detail(st.session_state["detail_record"])
 
 # ---------------------------------------------------------------------------
 # Main Layout
@@ -899,7 +1073,8 @@ else:
     }
 
     if st.session_state.get("is_admin", False):
-        # Admin: editable table with save button
+        # Admin: editable table with save + row-click detail popup
+        editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}"
         edited_df = st.data_editor(
             display_df,
             column_config=column_config,
@@ -907,8 +1082,24 @@ else:
             hide_index=True,
             num_rows="fixed",
             height=320,
-            key=f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}",
+            key=editor_key,
+            on_select="rerun",
+            selection_mode="single-row",
         )
+
+        # Row-click detection (via session_state key for data_editor)
+        _editor_state = st.session_state.get(editor_key, {})
+        _sel_rows = (
+            _editor_state.get("selection", {}).get("rows", [])
+            if isinstance(_editor_state, dict)
+            else []
+        )
+        if _sel_rows:
+            _rec = page_df.iloc[_sel_rows[0]].to_dict()
+            if st.session_state.get("detail_record") != _rec:
+                st.session_state["detail_record"] = _rec
+                st.rerun()
+
         if not display_df.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
                 for idx in edited_df.index:
@@ -920,17 +1111,37 @@ else:
                         if "box" in changes:
                             changes["box"] = int(changes["box"])
                         record_store.update(db, doc_id, changes)
+                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
                 load_data()
+                # --- Auto-backup to Google Drive (after all cell edits are saved) ---
+                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
+                if _bk_folder and st.secrets.get("enable_backup", True):
+                    try:
+                        upload_backup_to_drive(
+                            st.session_state["df"],
+                            st.secrets["firebase"],
+                            _bk_folder,
+                        )
+                    except Exception:
+                        pass
                 st.rerun()
     else:
-        # Public: strict read-only table — no editing, no download
-        st.dataframe(
+        # Public: read-only table with row-click detail popup
+        event = st.dataframe(
             display_df,
             column_config=column_config,
             use_container_width=True,
             hide_index=True,
             height=320,
+            on_select="rerun",
+            selection_mode="single-row",
         )
+        _pub_rows = event.selection.rows
+        if _pub_rows:
+            _rec = page_df.iloc[_pub_rows[0]].to_dict()
+            if st.session_state.get("detail_record") != _rec:
+                st.session_state["detail_record"] = _rec
+                st.rerun()
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
