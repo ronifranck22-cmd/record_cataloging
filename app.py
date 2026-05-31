@@ -767,6 +767,17 @@ def show_record_detail(record: dict) -> None:
     id_letter  = (record.get("id_letter")  or "").strip()
     notes      = (record.get("notes")      or "").strip()
 
+    # Convert standard Drive export URL to Google User Content direct image URL for reliable hotlinking
+    if "drive.google.com" in image_url:
+        try:
+            parsed = urllib.parse.urlparse(image_url)
+            qs = urllib.parse.parse_qs(parsed.query)
+            file_id = qs.get("id", [None])[0]
+            if file_id:
+                image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
+        except Exception:
+            pass
+
     # ── Album cover ────────────────────────────────────────────────────────
     if image_url:
         try:
@@ -801,12 +812,6 @@ def show_record_detail(record: dict) -> None:
     if not year:
         year = "לא ידוע"
 
-    # Construct Discogs Search/Direct URL
-    discogs_url = record.get("discogs_url")
-    if not discogs_url:
-        query_str = urllib.parse.quote(f"{artist} {name}")
-        discogs_url = f"https://www.discogs.com/search/?q={query_str}&type=release"
-
     st.markdown(
         f"""
         <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
@@ -821,8 +826,6 @@ def show_record_detail(record: dict) -> None:
     )
 
     st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
-    st.link_button("🎵 צפה בדיסקוגס (Discogs)", discogs_url, use_container_width=True)
-    
     if st.button("✕ סגור", use_container_width=True):
         st.session_state["detail_record"] = None
         st.rerun()
@@ -1096,44 +1099,76 @@ else:
         "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
     }
 
-    # Render table headers using columns
-    cols_layout = [1, 2, 2.5, 3.5, 1.2] if show_box else [2, 2.5, 3.5, 1.2]
-    header_cols = st.columns(cols_layout)
-    if show_box:
-        header_cols[0].markdown("**קופסא**")
-        header_cols[1].markdown("**אמן**")
-        header_cols[2].markdown("**שם התקליט**")
-        header_cols[3].markdown("**הערות**")
-        header_cols[4].markdown("**צפייה**")
+    if st.session_state.get("is_admin", False):
+        # Admin: editable table with save + row-click detail popup
+        editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}"
+        edited_df = st.data_editor(
+            display_df,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            height=320,
+            key=editor_key,
+            on_select="rerun",
+            selection_mode="single-row",
+        )
+
+        # Row-click detection (via session_state key for data_editor)
+        _editor_state = st.session_state.get(editor_key, {})
+        _sel_rows = (
+            _editor_state.get("selection", {}).get("rows", [])
+            if isinstance(_editor_state, dict)
+            else []
+        )
+        if _sel_rows:
+            _rec = page_df.iloc[_sel_rows[0]].to_dict()
+            if st.session_state.get("detail_record") != _rec:
+                st.session_state["detail_record"] = _rec
+                st.rerun()
+
+        if not display_df.equals(edited_df):
+            if st.button("שמור שינויים", type="primary"):
+                for idx in edited_df.index:
+                    original_row = display_df.loc[idx]
+                    edited_row = edited_df.loc[idx]
+                    if not original_row.equals(edited_row):
+                        doc_id = filtered_df.loc[idx, "id"]
+                        changes = edited_row.to_dict()
+                        if "box" in changes:
+                            changes["box"] = int(changes["box"])
+                        record_store.update(db, doc_id, changes)
+                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
+                load_data()
+                # --- Auto-backup to Google Drive (after all cell edits are saved) ---
+                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
+                if _bk_folder and st.secrets.get("enable_backup", True):
+                    try:
+                        upload_backup_to_drive(
+                            st.session_state["df"],
+                            st.secrets["firebase"],
+                            _bk_folder,
+                        )
+                    except Exception:
+                        pass
+                st.rerun()
     else:
-        header_cols[0].markdown("**אמן**")
-        header_cols[1].markdown("**שם התקליט**")
-        header_cols[2].markdown("**הערות**")
-        header_cols[3].markdown("**צפייה**")
-        
-    st.markdown("<hr style='margin: 0.3rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
-    
-    # Loop over rows to display records with a 'View' button for each
-    for idx, row in page_df.iterrows():
-        cols = st.columns(cols_layout)
-        if show_box:
-            cols[0].write(str(row.get("box", 1)))
-            cols[1].write(row.get("artist", ""))
-            cols[2].write(row.get("name", ""))
-            cols[3].write(row.get("notes", "") or "")
-            with cols[4]:
-                if st.button("👁️ צפה", key=f"view_{row['id']}", use_container_width=True):
-                    st.session_state["detail_record"] = row.to_dict()
-                    st.rerun()
-        else:
-            cols[0].write(row.get("artist", ""))
-            cols[1].write(row.get("name", ""))
-            cols[2].write(row.get("notes", "") or "")
-            with cols[3]:
-                if st.button("👁️ צפה", key=f"view_{row['id']}", use_container_width=True):
-                    st.session_state["detail_record"] = row.to_dict()
-                    st.rerun()
-        st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
+        # Public: read-only table with row-click detail popup
+        event = st.dataframe(
+            display_df,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            height=320,
+            on_select="rerun",
+            selection_mode="single-row",
+        )
+        _pub_rows = event.selection.rows
+        if _pub_rows:
+            _rec = page_df.iloc[_pub_rows[0]].to_dict()
+            if st.session_state.get("detail_record") != _rec:
+                st.session_state["detail_record"] = _rec
+                st.rerun()
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
