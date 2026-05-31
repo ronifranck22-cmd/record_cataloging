@@ -403,31 +403,6 @@ st.markdown(
         padding-top: 0px;
         padding-bottom: 0px;
     }
-
-    /* Style Streamlit buttons in the View column */
-    div[data-testid="column"]:nth-of-type(1) button {
-        background: #f1f5f9 !important;
-        border: 1px solid var(--color-border) !important;
-        padding: 0 !important;
-        color: var(--color-text-main) !important;
-        font-size: 1.1rem !important;
-        border-radius: 50% !important;
-        width: 32px !important;
-        height: 32px !important;
-        min-width: 32px !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        box-shadow: var(--shadow-sm) !important;
-        margin: 0 auto !important;
-        transition: var(--transition) !important;
-    }
-    div[data-testid="column"]:nth-of-type(1) button:hover {
-        background: var(--color-primary) !important;
-        color: white !important;
-        border-color: var(--color-primary) !important;
-        transform: scale(1.05) !important;
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -530,6 +505,15 @@ if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
 
 df = st.session_state["df"]
+
+# --- Query parameter view detection (for HTML table click navigation) ---
+if "view" in st.query_params:
+    view_id = st.query_params["view"]
+    st.query_params.clear()
+    matched = df[df["id"] == view_id]
+    if not matched.empty:
+        st.session_state["detail_record"] = matched.iloc[0].to_dict()
+        st.rerun()
 
 # Show a visible banner when the daily Firestore quota is exhausted so the
 # app stays alive rather than crashing.  The banner auto-disappears once
@@ -1152,38 +1136,114 @@ else:
                         pass
                 st.rerun()
     else:
-        # Public: read-only table with custom columns loop and view button
-        with st.container(height=340, border=True):
-            # Table headers
-            cols_layout = [0.8, 3.5, 3.5, 2.5, 1.2] if show_box else [0.8, 4.0, 4.0, 3.0]
-            header_cols = st.columns(cols_layout)
-            header_cols[0].markdown("**צפייה**")
-            header_cols[1].markdown("**הערות**")
-            header_cols[2].markdown("**שם התקליט**")
-            header_cols[3].markdown("**אמן**")
-            if show_box:
-                header_cols[4].markdown("**קופסא**")
-                
-            st.markdown("<hr style='margin: 0.2rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
+        # Public: read-only table with clickable eye icon column styled to match st.dataframe
+        headers = ["צפייה", "הערות", "שם התקליט", "אמן"]
+        if show_box:
+            headers.append("קופסא")
             
-            # Table rows
-            for idx, row in page_df.iterrows():
-                cols = st.columns(cols_layout)
-                with cols[0]:
-                    if st.button("👁️", key=f"view_btn_{row['id']}", use_container_width=True):
-                        st.session_state["detail_record"] = row.to_dict()
-                        st.rerun()
-                cols[1].write(row.get("notes", "") or "")
-                cols[2].write(row.get("name", "") or "")
-                cols[3].write(row.get("artist", "") or "")
-                if show_box:
-                    box_val = row.get("box", 1)
-                    let_val = row.get("id_letter", "")
-                    loc_str = str(box_val)
-                    if let_val:
-                        loc_str += f" ({let_val})"
-                    cols[4].write(loc_str)
-                st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9; opacity: 0.6;'>", unsafe_allow_html=True)
+        rows_html = []
+        for idx, row in page_df.iterrows():
+            row_id = row.get("id", "")
+            notes_val = row.get("notes", "") or ""
+            name_val = row.get("name", "לא ידוע") or "לא ידוע"
+            artist_val = row.get("artist", "") or ""
+            
+            # View column link
+            view_link = f'<a class="view-btn" href="/?view={row_id}" target="_self">👁️</a>'
+            
+            row_cells = [
+                f'<td>{view_link}</td>',
+                f'<td>{notes_val}</td>',
+                f'<td>{name_val}</td>',
+                f'<td>{artist_val}</td>'
+            ]
+            if show_box:
+                box_val = row.get("box", 1)
+                let_val = row.get("id_letter", "")
+                loc_str = str(box_val)
+                if let_val:
+                    loc_str += f" ({let_val})"
+                row_cells.append(f'<td>{loc_str}</td>')
+                
+            rows_html.append(f'<tr>{"".join(row_cells)}</tr>')
+            
+        headers_html = "".join([f'<th>{h}</th>' for h in headers])
+        table_body_html = "".join(rows_html)
+        
+        table_html = f"""
+        <style>
+        .custom-table-wrapper {{
+            overflow: auto;
+            max-height: 320px;
+            direction: rtl;
+        }}
+        .custom-table {{
+            width: 100%;
+            border-collapse: collapse;
+            direction: rtl;
+            text-align: right;
+            font-family: 'Assistant', sans-serif;
+            color: var(--color-text-main);
+            background-color: var(--color-bg-surface);
+        }}
+        .custom-table th {{
+            font-weight: 700;
+            padding: 10px;
+            border-bottom: 2px solid var(--color-border);
+            color: var(--color-text-muted);
+            font-size: 0.85rem;
+            background-color: var(--color-bg-surface);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }}
+        .custom-table td {{
+            padding: 10px;
+            border-bottom: 1px solid var(--color-border);
+            font-size: 0.85rem;
+            vertical-align: middle;
+            color: var(--color-text-main);
+        }}
+        .custom-table tr:hover {{
+            background-color: #f8fafc;
+        }}
+        .custom-table th:nth-child(1), .custom-table td:nth-child(1) {{ width: 60px; text-align: center; }}
+        .custom-table th:nth-child(2), .custom-table td:nth-child(2) {{ width: 35%; }}
+        .custom-table th:nth-child(3), .custom-table td:nth-child(3) {{ width: 35%; }}
+        .custom-table th:nth-child(4), .custom-table td:nth-child(4) {{ width: 20%; }}
+        
+        .custom-table .view-btn {{
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-decoration: none;
+            color: var(--color-text-muted);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            transition: var(--transition);
+        }}
+        .custom-table .view-btn:hover {{
+            background-color: var(--color-primary);
+            color: white;
+        }}
+        </style>
+        <div class="custom-table-wrapper">
+            <table class="custom-table">
+                <thead>
+                    <tr>{headers_html}</tr>
+                </thead>
+                <tbody>
+                    {table_body_html}
+                </tbody>
+            </table>
+        </div>
+        """
+        
+        with st.container(height=340, border=True):
+            st.markdown(table_html, unsafe_allow_html=True)
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
