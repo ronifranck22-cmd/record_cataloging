@@ -187,7 +187,8 @@ def run_bulk_sync(
 
 if __name__ == "__main__":
     import json
-    from db_client import get_db
+    import firebase_admin
+    from firebase_admin import credentials as _fb_creds, firestore as _fb_firestore
 
     parser = argparse.ArgumentParser(
         description="Sync album cover images from Discogs to Google Drive."
@@ -205,11 +206,16 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    # Load Firebase service account from the local JSON file
+    # Load Firebase service account from the local JSON file (bypasses st.secrets)
     with open("firebase-adminsdk.json") as f:
         creds_dict = json.load(f)
 
-    db_client = get_db()
+    # Initialize Firebase directly — no Streamlit context needed
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(_fb_creds.Certificate(creds_dict))
+    db_client = _fb_firestore.client()
+
     drive_svc = build_drive_service(creds_dict)
 
     run_bulk_sync(db_client, drive_svc, args.folder_id, limit=args.limit)
+

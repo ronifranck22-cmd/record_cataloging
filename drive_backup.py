@@ -20,7 +20,12 @@ import re
 from datetime import datetime, timezone
 
 import pandas as pd
+import os
+import json
 from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 
@@ -37,12 +42,56 @@ _MAX_BACKUPS = 3
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def build_drive_service(firebase_secrets: dict):
-    """Build an authenticated Drive service from Firebase service account secrets."""
-    creds = service_account.Credentials.from_service_account_info(
-        dict(firebase_secrets),
-        scopes=_SCOPES,
-    )
+def get_gdrive_credentials():
+    creds = None
+    # 1. Look for token.json
+    if os.path.exists("token.json"):
+        try:
+            creds = Credentials.from_authorized_user_file("token.json", _SCOPES)
+        except Exception as e:
+            print(f"Error loading token.json: {e}")
+            
+    # 2. If no valid credentials, use credentials.json to log in
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            try:
+                creds.refresh(Request())
+            except Exception as e:
+                print(f"Error refreshing token: {e}")
+                creds = None
+                
+        if not creds:
+            if os.path.exists("credentials.json"):
+                flow = InstalledAppFlow.from_client_secrets_file("credentials.json", _SCOPES)
+                creds = flow.run_local_server(port=0)
+                # Save the credentials for the next run
+                with open("token.json", "w") as token:
+                    token.write(creds.to_json())
+            else:
+                # If neither token.json nor credentials.json exists, check Streamlit secrets as fallback
+                try:
+                    import streamlit as st
+                    if "gdrive_token" in st.secrets:
+                        token_info = dict(st.secrets["gdrive_token"])
+                        creds = Credentials.from_authorized_user_info(token_info, _SCOPES)
+                except Exception:
+                    pass
+                    
+    return creds
+
+
+def build_drive_service(firebase_secrets: dict = None):
+    """Build an authenticated Drive service using OAuth 2.0 credentials, falling back to service account."""
+    creds = get_gdrive_credentials()
+    if not creds:
+        if firebase_secrets:
+            creds = service_account.Credentials.from_service_account_info(
+                dict(firebase_secrets),
+                scopes=_SCOPES,
+            )
+        else:
+            raise ValueError("No valid credentials found (need token.json, credentials.json, or service account)")
+            
     return build("drive", "v3", credentials=creds, cache_discovery=False)
 
 

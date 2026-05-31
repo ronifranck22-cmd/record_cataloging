@@ -19,6 +19,7 @@ from google.api_core.exceptions import ResourceExhausted
 # ---------------------------------------------------------------------------
 # Logo Processing (Base64 for inline embedding)
 # ---------------------------------------------------------------------------
+@st.cache_data
 def get_base64_of_bin_file(bin_file):
     try:
         with open(bin_file, 'rb') as f:
@@ -491,6 +492,7 @@ def reset_all_filters():
     st.session_state["search_input"] = ""
     st.session_state["artist_select"] = []
     st.session_state["letter_select"] = []
+    st.cache_data.clear()  # Clear cache so fresh data is fetched from Firestore
     load_data()
 
 def set_admin():

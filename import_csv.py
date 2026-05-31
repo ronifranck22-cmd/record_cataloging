@@ -38,6 +38,21 @@ def _parse_row(row: dict) -> dict:
         "name": name,
         "notes": row.get("notes") if row.get("notes") else None
     }
+
+    # Extract image_url if present and valid
+    if "image_url" in row and row["image_url"]:
+        img_url = row["image_url"].strip()
+        if img_url and img_url.lower() != "not found":
+            data["image_url"] = img_url
+            
+            # Check if already synced
+            synced = row.get("image_synced", "")
+            if isinstance(synced, str):
+                synced = synced.strip().lower() in ("true", "1", "yes")
+            else:
+                synced = bool(synced)
+            data["image_synced"] = synced
+            
     return process_record_fields(data)
 
 
@@ -62,11 +77,20 @@ def main():
         
     db = firestore.client()
 
-    if not CSV_PATH.exists():
-        print(f"CSV not found at {CSV_PATH}")
+    # Parse arguments manually to avoid crashes if run via Streamlit
+    csv_path = CSV_PATH
+    for i, arg in enumerate(sys.argv):
+        if arg == "--csv" and i + 1 < len(sys.argv):
+            csv_path = Path(sys.argv[i + 1])
+            break
+
+    if not csv_path.exists():
+        print(f"CSV not found at {csv_path}")
         sys.exit(1)
 
-    with open(CSV_PATH, encoding="utf-8-sig") as f:
+    print(f"Importing records from {csv_path}...")
+
+    with open(csv_path, encoding="utf-8-sig") as f:
         reader = list(csv.DictReader(f))
         
         # Insert efficiently in batches (Firestore allows up to 500 ops per batch)
