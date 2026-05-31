@@ -403,6 +403,35 @@ st.markdown(
         padding-top: 0px;
         padding-bottom: 0px;
     }
+
+    /* Style Streamlit buttons in the Album Name column to look like text links */
+    div[data-testid="column"]:nth-of-type(2) button {
+        background: transparent !important;
+        border: none !important;
+        padding: 0 !important;
+        color: var(--color-text-main) !important;
+        text-decoration: underline !important;
+        text-align: right !important;
+        justify-content: flex-start !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+        height: auto !important;
+        min-height: 0 !important;
+        transform: none !important;
+        transition: none !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+    }
+    div[data-testid="column"]:nth-of-type(2) button:hover {
+        color: var(--color-primary-hover) !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    div[data-testid="column"]:nth-of-type(2) button:active {
+        background: transparent !important;
+        color: var(--color-text-main) !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -525,6 +554,7 @@ if st.session_state.get("_quota_exhausted"):
 
 @st.dialog(" הגרלת תקליט")
 def draw_record_dialog():
+    st.session_state["dialog_open"] = False
     if df.empty:
         st.warning("אין תקליטים בספרייה.")
         return
@@ -646,18 +676,12 @@ def draw_record_dialog():
             unsafe_allow_html=True,
         )
 
-    col_spin, col_close = st.columns(2)
-    with col_spin:
-        if st.button("סובב שוב", use_container_width=True):
-            st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
-            st.session_state["spin_key"] = spin_key + 1
-            st.session_state["drawn_at"] = time.time()
-            st.rerun()  # safe: dialog_open=True keeps dialog alive on rerun
-    with col_close:
-        if st.button("✕ סגור", use_container_width=True):
-            st.session_state["drawn_record"] = None
-            st.session_state["dialog_open"] = False
-            st.rerun()
+    if st.button("סובב שוב", use_container_width=True):
+        st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
+        st.session_state["spin_key"] = spin_key + 1
+        st.session_state["drawn_at"] = time.time()
+        st.session_state["dialog_open"] = True  # Ensure it stays open
+        st.rerun()
 
 with st.sidebar:
     st.markdown('<h3 style="text-align: right; margin-top: 0;"><i class="fas fa-layer-group"></i> נתונים</h3>', unsafe_allow_html=True)
@@ -760,12 +784,14 @@ def show_record_detail(record: dict) -> None:
     import re
     import urllib.parse
 
+    # Reset state immediately to prevent re-triggering on subsequent page reruns when closed via X
+    st.session_state["detail_record"] = None
+
     image_url  = (record.get("image_url")  or "").strip()
     artist     = (record.get("artist")     or "לא ידוע").strip()
     name       = (record.get("name")       or "לא ידוע").strip()
     box        = record.get("box", "")
     id_letter  = (record.get("id_letter")  or "").strip()
-    notes      = (record.get("notes")      or "").strip()
 
     # Convert standard Drive export URL to Google User Content direct image URL for reliable hotlinking
     if "drive.google.com" in image_url:
@@ -781,7 +807,9 @@ def show_record_detail(record: dict) -> None:
     # ── Album cover ────────────────────────────────────────────────────────
     if image_url:
         try:
-            st.image(image_url, use_container_width=True)
+            col_img_left, col_img_center, col_img_right = st.columns([1, 2, 1])
+            with col_img_center:
+                st.image(image_url, width=180)
         except Exception:
             st.caption("🎶 תמונה לא זמינה")
     else:
@@ -789,9 +817,10 @@ def show_record_detail(record: dict) -> None:
             """
             <div style="
                 background: linear-gradient(135deg,#9DBCE3 0%,#c7ddf5 100%);
-                border-radius:12px; height:160px;
+                border-radius:12px; height:120px; width:120px;
+                margin: 0 auto;
                 display:flex; align-items:center; justify-content:center;
-                font-size:3rem;">
+                font-size:2.5rem;">
             🏀
             </div>""",
             unsafe_allow_html=True,
@@ -802,33 +831,16 @@ def show_record_detail(record: dict) -> None:
     if id_letter:
         location += f" &nbsp;•&nbsp; אות {id_letter}"
 
-    # Extract Year from notes if not directly in the record
-    year = record.get("year")
-    if not year and notes:
-        # Try to find a 4-digit year like 1987 or 2021 in the notes
-        match = re.search(r'\b(19\d{2}|20\d{2})\b', notes)
-        if match:
-            year = match.group(1)
-    if not year:
-        year = "לא ידוע"
-
     st.markdown(
         f"""
         <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
             <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
             <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
-            <p style="margin:0.2rem 0 0; color:#8292A1; font-size:0.9rem;"><strong>שנה:</strong> {year}</p>
             <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
-            {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-    st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
-    if st.button("✕ סגור", use_container_width=True):
-        st.session_state["detail_record"] = None
-        st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -1153,22 +1165,36 @@ else:
                         pass
                 st.rerun()
     else:
-        # Public: read-only table with row-click detail popup
-        event = st.dataframe(
-            display_df,
-            column_config=column_config,
-            use_container_width=True,
-            hide_index=True,
-            height=320,
-            on_select="rerun",
-            selection_mode="single-row",
-        )
-        _pub_rows = event.selection.rows
-        if _pub_rows:
-            _rec = page_df.iloc[_pub_rows[0]].to_dict()
-            if st.session_state.get("detail_record") != _rec:
-                st.session_state["detail_record"] = _rec
-                st.rerun()
+        # Public: read-only table with clickable Album Name column
+        with st.container(height=340, border=True):
+            # Table headers
+            cols_layout = [3.5, 3.5, 2.5, 1.2] if show_box else [3.5, 3.5, 2.5]
+            header_cols = st.columns(cols_layout)
+            header_cols[0].markdown("**הערות**")
+            header_cols[1].markdown("**שם התקליט**")
+            header_cols[2].markdown("**אמן**")
+            if show_box:
+                header_cols[3].markdown("**קופסא**")
+                
+            st.markdown("<hr style='margin: 0.2rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
+            
+            # Table rows
+            for idx, row in page_df.iterrows():
+                cols = st.columns(cols_layout)
+                cols[0].write(row.get("notes", "") or "")
+                with cols[1]:
+                    if st.button(row.get("name", "לא ידוע"), key=f"album_{row['id']}", use_container_width=True):
+                        st.session_state["detail_record"] = row.to_dict()
+                        st.rerun()
+                cols[2].write(row.get("artist", ""))
+                if show_box:
+                    box_val = row.get("box", 1)
+                    let_val = row.get("id_letter", "")
+                    loc_str = str(box_val)
+                    if let_val:
+                        loc_str += f" ({let_val})"
+                    cols[3].write(loc_str)
+                st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9; opacity: 0.6;'>", unsafe_allow_html=True)
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
