@@ -472,7 +472,7 @@ def _fetch_all_records():
     Call st.cache_data.clear() before load_data() whenever data is mutated.
     """
     try:
-        return record_store.get_all(init_db(), limit=500)
+        return record_store.get_all(init_db(), limit=None)
     except ResourceExhausted:
         _empty_cols = ["id", "sorting_key"] + record_store.FIELDS + record_store.EXTRA_FIELDS
         return pd.DataFrame(columns=_empty_cols)
