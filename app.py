@@ -403,6 +403,31 @@ st.markdown(
         padding-top: 0px;
         padding-bottom: 0px;
     }
+
+    /* Style Streamlit buttons in the View column */
+    div[data-testid="column"]:nth-of-type(1) button {
+        background: #f1f5f9 !important;
+        border: 1px solid var(--color-border) !important;
+        padding: 0 !important;
+        color: var(--color-text-main) !important;
+        font-size: 1.1rem !important;
+        border-radius: 50% !important;
+        width: 32px !important;
+        height: 32px !important;
+        min-width: 32px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-shadow: var(--shadow-sm) !important;
+        margin: 0 auto !important;
+        transition: var(--transition) !important;
+    }
+    div[data-testid="column"]:nth-of-type(1) button:hover {
+        background: var(--color-primary) !important;
+        color: white !important;
+        border-color: var(--color-primary) !important;
+        transform: scale(1.05) !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -999,6 +1024,7 @@ if st.session_state.get("dialog_open", False):
 
 if st.session_state.get("detail_record") is not None:
     show_record_detail(st.session_state["detail_record"])
+    st.session_state["detail_record"] = None
 
 # ---------------------------------------------------------------------------
 # Main Layout
@@ -1088,7 +1114,7 @@ else:
     }
 
     if st.session_state.get("is_admin", False):
-        # Admin: editable table with save + row-click detail popup
+        # Admin: editable table with save (no selection/checkboxes)
         editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}"
         edited_df = st.data_editor(
             display_df,
@@ -1098,22 +1124,7 @@ else:
             num_rows="fixed",
             height=320,
             key=editor_key,
-            on_select="rerun",
-            selection_mode="single-row",
         )
-
-        # Row-click detection (via session_state key for data_editor)
-        _editor_state = st.session_state.get(editor_key, {})
-        _sel_rows = (
-            _editor_state.get("selection", {}).get("rows", [])
-            if isinstance(_editor_state, dict)
-            else []
-        )
-        if _sel_rows:
-            _rec = page_df.iloc[_sel_rows[0]].to_dict()
-            if st.session_state.get("detail_record") != _rec:
-                st.session_state["detail_record"] = _rec
-                st.rerun()
 
         if not display_df.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
@@ -1141,22 +1152,38 @@ else:
                         pass
                 st.rerun()
     else:
-        # Public: read-only table with row-click detail popup
-        event = st.dataframe(
-            display_df,
-            column_config=column_config,
-            use_container_width=True,
-            hide_index=True,
-            height=320,
-            on_select="rerun",
-            selection_mode="single-row",
-        )
-        _pub_rows = event.selection.rows
-        if _pub_rows:
-            _rec = page_df.iloc[_pub_rows[0]].to_dict()
-            if st.session_state.get("detail_record") != _rec:
-                st.session_state["detail_record"] = _rec
-                st.rerun()
+        # Public: read-only table with custom columns loop and view button
+        with st.container(height=340, border=True):
+            # Table headers
+            cols_layout = [0.8, 3.5, 3.5, 2.5, 1.2] if show_box else [0.8, 4.0, 4.0, 3.0]
+            header_cols = st.columns(cols_layout)
+            header_cols[0].markdown("**צפייה**")
+            header_cols[1].markdown("**הערות**")
+            header_cols[2].markdown("**שם התקליט**")
+            header_cols[3].markdown("**אמן**")
+            if show_box:
+                header_cols[4].markdown("**קופסא**")
+                
+            st.markdown("<hr style='margin: 0.2rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
+            
+            # Table rows
+            for idx, row in page_df.iterrows():
+                cols = st.columns(cols_layout)
+                with cols[0]:
+                    if st.button("👁️", key=f"view_btn_{row['id']}", use_container_width=True):
+                        st.session_state["detail_record"] = row.to_dict()
+                        st.rerun()
+                cols[1].write(row.get("notes", "") or "")
+                cols[2].write(row.get("name", "") or "")
+                cols[3].write(row.get("artist", "") or "")
+                if show_box:
+                    box_val = row.get("box", 1)
+                    let_val = row.get("id_letter", "")
+                    loc_str = str(box_val)
+                    if let_val:
+                        loc_str += f" ({let_val})"
+                    cols[4].write(loc_str)
+                st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9; opacity: 0.6;'>", unsafe_allow_html=True)
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
