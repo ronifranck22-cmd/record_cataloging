@@ -404,9 +404,17 @@ st.markdown(
         padding-bottom: 0px;
     }
 
-    /* Style Streamlit buttons in the View column (4th or 5th column) to be small circular buttons */
-    div[data-testid="column"]:nth-of-type(4) button,
-    div[data-testid="column"]:nth-of-type(5) button {
+    /* Force the public table container to flow LTR (like st.dataframe) */
+    .public-table-container div[data-testid="stHorizontalBlock"] {
+        direction: ltr !important;
+    }
+    .public-table-container div[data-testid="column"] {
+        direction: rtl !important;
+        text-align: right !important;
+    }
+
+    /* Style Streamlit buttons in the View column (first column) of the public table */
+    .public-table-container div[data-testid="column"]:first-of-type button {
         background: #f1f5f9 !important;
         border: 1px solid var(--color-border) !important;
         padding: 0 !important;
@@ -423,8 +431,7 @@ st.markdown(
         margin: 0 auto !important;
         transition: var(--transition) !important;
     }
-    div[data-testid="column"]:nth-of-type(4) button:hover,
-    div[data-testid="column"]:nth-of-type(5) button:hover {
+    .public-table-container div[data-testid="column"]:first-of-type button:hover {
         background: var(--color-primary) !important;
         color: white !important;
         border-color: var(--color-primary) !important;
@@ -1172,45 +1179,40 @@ else:
                         pass
                 st.rerun()
     else:
-        # Public: read-only table with native st.columns loop (View button on the far left in RTL)
+        # Public: read-only table with native st.columns loop (wrapped in public-table-container)
+        st.markdown('<div class="public-table-container">', unsafe_allow_html=True)
         with st.container(height=340, border=True):
             # Table headers
-            cols_layout = [3.5, 3.5, 2.5, 1.2, 0.8] if show_box else [4.0, 4.0, 3.0, 0.8]
+            cols_layout = [0.8, 3.5, 3.5, 2.5, 1.2] if show_box else [0.8, 4.0, 4.0, 3.0]
             header_cols = st.columns(cols_layout)
-            header_cols[0].markdown("**הערות**")
-            header_cols[1].markdown("**שם התקליט**")
-            header_cols[2].markdown("**אמן**")
+            header_cols[0].markdown("**צפייה**")
+            header_cols[1].markdown("**הערות**")
+            header_cols[2].markdown("**שם התקליט**")
+            header_cols[3].markdown("**אמן**")
             if show_box:
-                header_cols[3].markdown("**קופסא**")
-                header_cols[4].markdown("**צפייה**")
-            else:
-                header_cols[3].markdown("**צפייה**")
+                header_cols[4].markdown("**קופסא**")
                 
             st.markdown("<hr style='margin: 0.2rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
             
             # Table rows
             for idx, row in page_df.iterrows():
                 cols = st.columns(cols_layout)
-                cols[0].write(row.get("notes", "") or "")
-                cols[1].write(row.get("name", "לא ידוע") or "לא ידוע")
-                cols[2].write(row.get("artist", "") or "")
+                with cols[0]:
+                    if st.button("👁️", key=f"view_btn_{row['id']}", use_container_width=True):
+                        st.session_state["detail_record"] = row.to_dict()
+                        st.rerun()
+                cols[1].write(row.get("notes", "") or "")
+                cols[2].write(row.get("name", "לא ידוע") or "לא ידוע")
+                cols[3].write(row.get("artist", "") or "")
                 if show_box:
                     box_val = row.get("box", 1)
                     let_val = row.get("id_letter", "")
                     loc_str = str(box_val)
                     if let_val:
                         loc_str += f" ({let_val})"
-                    cols[3].write(loc_str)
-                    with cols[4]:
-                        if st.button("👁️", key=f"view_btn_{row['id']}", use_container_width=True):
-                            st.session_state["detail_record"] = row.to_dict()
-                            st.rerun()
-                else:
-                    with cols[3]:
-                        if st.button("👁️", key=f"view_btn_{row['id']}", use_container_width=True):
-                            st.session_state["detail_record"] = row.to_dict()
-                            st.rerun()
+                    cols[4].write(loc_str)
                 st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9; opacity: 0.6;'>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
