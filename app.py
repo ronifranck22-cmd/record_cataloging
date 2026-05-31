@@ -757,6 +757,9 @@ def show_record_detail(record: dict) -> None:
     Modular record detail popup.  Called with a full record dict
     (including image_url / image_synced if available).
     """
+    import re
+    import urllib.parse
+
     image_url  = (record.get("image_url")  or "").strip()
     artist     = (record.get("artist")     or "לא ידוע").strip()
     name       = (record.get("name")       or "לא ידוע").strip()
@@ -788,19 +791,38 @@ def show_record_detail(record: dict) -> None:
     if id_letter:
         location += f" &nbsp;•&nbsp; אות {id_letter}"
 
+    # Extract Year from notes if not directly in the record
+    year = record.get("year")
+    if not year and notes:
+        # Try to find a 4-digit year like 1987 or 2021 in the notes
+        match = re.search(r'\b(19\d{2}|20\d{2})\b', notes)
+        if match:
+            year = match.group(1)
+    if not year:
+        year = "לא ידוע"
+
+    # Construct Discogs Search/Direct URL
+    discogs_url = record.get("discogs_url")
+    if not discogs_url:
+        query_str = urllib.parse.quote(f"{artist} {name}")
+        discogs_url = f"https://www.discogs.com/search/?q={query_str}&type=release"
+
     st.markdown(
         f"""
         <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
             <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
-            <p style="margin:0; color:#8292A1; font-size:0.9rem;">{artist}</p>
+            <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
+            <p style="margin:0.2rem 0 0; color:#8292A1; font-size:0.9rem;"><strong>שנה:</strong> {year}</p>
             <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
-            {'<p style="margin:0.4rem 0 0; font-size:0.85rem;">'+notes+'</p>' if notes else ''}
+            {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
         </div>
         """,
         unsafe_allow_html=True,
     )
 
     st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
+    st.link_button("🎵 צפה בדיסקוגס (Discogs)", discogs_url, use_container_width=True)
+    
     if st.button("✕ סגור", use_container_width=True):
         st.session_state["detail_record"] = None
         st.rerun()
@@ -1074,76 +1096,44 @@ else:
         "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
     }
 
-    if st.session_state.get("is_admin", False):
-        # Admin: editable table with save + row-click detail popup
-        editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}"
-        edited_df = st.data_editor(
-            display_df,
-            column_config=column_config,
-            use_container_width=True,
-            hide_index=True,
-            num_rows="fixed",
-            height=320,
-            key=editor_key,
-            on_select="rerun",
-            selection_mode="single-row",
-        )
-
-        # Row-click detection (via session_state key for data_editor)
-        _editor_state = st.session_state.get(editor_key, {})
-        _sel_rows = (
-            _editor_state.get("selection", {}).get("rows", [])
-            if isinstance(_editor_state, dict)
-            else []
-        )
-        if _sel_rows:
-            _rec = page_df.iloc[_sel_rows[0]].to_dict()
-            if st.session_state.get("detail_record") != _rec:
-                st.session_state["detail_record"] = _rec
-                st.rerun()
-
-        if not display_df.equals(edited_df):
-            if st.button("שמור שינויים", type="primary"):
-                for idx in edited_df.index:
-                    original_row = display_df.loc[idx]
-                    edited_row = edited_df.loc[idx]
-                    if not original_row.equals(edited_row):
-                        doc_id = filtered_df.loc[idx, "id"]
-                        changes = edited_row.to_dict()
-                        if "box" in changes:
-                            changes["box"] = int(changes["box"])
-                        record_store.update(db, doc_id, changes)
-                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
-                load_data()
-                # --- Auto-backup to Google Drive (after all cell edits are saved) ---
-                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
-                if _bk_folder and st.secrets.get("enable_backup", True):
-                    try:
-                        upload_backup_to_drive(
-                            st.session_state["df"],
-                            st.secrets["firebase"],
-                            _bk_folder,
-                        )
-                    except Exception:
-                        pass
-                st.rerun()
+    # Render table headers using columns
+    cols_layout = [1, 2, 2.5, 3.5, 1.2] if show_box else [2, 2.5, 3.5, 1.2]
+    header_cols = st.columns(cols_layout)
+    if show_box:
+        header_cols[0].markdown("**קופסא**")
+        header_cols[1].markdown("**אמן**")
+        header_cols[2].markdown("**שם התקליט**")
+        header_cols[3].markdown("**הערות**")
+        header_cols[4].markdown("**צפייה**")
     else:
-        # Public: read-only table with row-click detail popup
-        event = st.dataframe(
-            display_df,
-            column_config=column_config,
-            use_container_width=True,
-            hide_index=True,
-            height=320,
-            on_select="rerun",
-            selection_mode="single-row",
-        )
-        _pub_rows = event.selection.rows
-        if _pub_rows:
-            _rec = page_df.iloc[_pub_rows[0]].to_dict()
-            if st.session_state.get("detail_record") != _rec:
-                st.session_state["detail_record"] = _rec
-                st.rerun()
+        header_cols[0].markdown("**אמן**")
+        header_cols[1].markdown("**שם התקליט**")
+        header_cols[2].markdown("**הערות**")
+        header_cols[3].markdown("**צפייה**")
+        
+    st.markdown("<hr style='margin: 0.3rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
+    
+    # Loop over rows to display records with a 'View' button for each
+    for idx, row in page_df.iterrows():
+        cols = st.columns(cols_layout)
+        if show_box:
+            cols[0].write(str(row.get("box", 1)))
+            cols[1].write(row.get("artist", ""))
+            cols[2].write(row.get("name", ""))
+            cols[3].write(row.get("notes", "") or "")
+            with cols[4]:
+                if st.button("👁️ צפה", key=f"view_{row['id']}", use_container_width=True):
+                    st.session_state["detail_record"] = row.to_dict()
+                    st.rerun()
+        else:
+            cols[0].write(row.get("artist", ""))
+            cols[1].write(row.get("name", ""))
+            cols[2].write(row.get("notes", "") or "")
+            with cols[3]:
+                if st.button("👁️ צפה", key=f"view_{row['id']}", use_container_width=True):
+                    st.session_state["detail_record"] = row.to_dict()
+                    st.rerun()
+        st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9;'>", unsafe_allow_html=True)
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
