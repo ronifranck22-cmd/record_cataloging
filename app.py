@@ -403,40 +403,6 @@ st.markdown(
         padding-top: 0px;
         padding-bottom: 0px;
     }
-
-    /* Force the public table container to flow LTR (like st.dataframe) */
-    .public-table-container div[data-testid="stHorizontalBlock"] {
-        direction: ltr !important;
-    }
-    .public-table-container div[data-testid="column"] {
-        direction: rtl !important;
-        text-align: right !important;
-    }
-
-    /* Style Streamlit buttons in the View column (first column) of the public table */
-    .public-table-container div[data-testid="column"]:first-of-type button {
-        background: #f1f5f9 !important;
-        border: 1px solid var(--color-border) !important;
-        padding: 0 !important;
-        color: var(--color-text-main) !important;
-        font-size: 1.1rem !important;
-        border-radius: 50% !important;
-        width: 32px !important;
-        height: 32px !important;
-        min-width: 32px !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        box-shadow: var(--shadow-sm) !important;
-        margin: 0 auto !important;
-        transition: var(--transition) !important;
-    }
-    .public-table-container div[data-testid="column"]:first-of-type button:hover {
-        background: var(--color-primary) !important;
-        color: white !important;
-        border-color: var(--color-primary) !important;
-        transform: scale(1.05) !important;
-    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -479,6 +445,8 @@ if "is_admin" not in st.session_state:
     st.session_state["is_admin"] = False
 if "detail_record" not in st.session_state:
     st.session_state["detail_record"] = None
+if "selection_counter" not in st.session_state:
+    st.session_state["selection_counter"] = 0
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -539,7 +507,6 @@ if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
 
 df = st.session_state["df"]
-
 
 # Show a visible banner when the daily Firestore quota is exhausted so the
 # app stays alive rather than crashing.  The banner auto-disappears once
@@ -787,7 +754,7 @@ if st.session_state["current_page"] > MAX_PAGE:
 # ---------------------------------------------------------------------------
 
 @st.dialog("🎧 פרטי האלבום")
-def show_record_detail(record) -> None:
+def show_record_detail(record: dict) -> None:
     """
     Modular record detail popup.  Called with a full record dict
     (including image_url / image_synced if available).
@@ -795,31 +762,16 @@ def show_record_detail(record) -> None:
     import re
     import urllib.parse
 
-    # Reset state immediately to prevent re-triggering on subsequent page reruns when closed via X
-    st.session_state["detail_record"] = None
-
-    # Safely convert pandas Series or other record types to dictionary
     if not isinstance(record, dict):
-        if hasattr(record, "to_dict"):
-            try:
-                record = record.to_dict()
-            except Exception:
-                record = {}
-        else:
-            record = {}
-
-    image_url = ""
-    artist    = "לא ידוע"
-    name      = "לא ידוע"
-    box       = ""
-    id_letter = ""
-
-    if isinstance(record, dict) and record:
-        image_url  = (record.get("image_url")  or "").strip()
-        artist     = (record.get("artist")     or "לא ידוע").strip()
-        name       = (record.get("name")       or "לא ידוע").strip()
-        box        = record.get("box", "")
-        id_letter  = (record.get("id_letter")  or "").strip()
+        # Fallback if record is not a dict
+        st.error("לא ניתן להציג פרטים עבור רשומה זו.")
+        return
+    image_url = record.get("image_url", "").strip() if record.get("image_url") else None
+    artist     = (record.get("artist")     or "לא ידוע").strip()
+    name       = (record.get("name")       or "לא ידוע").strip()
+    box        = record.get("box", "")
+    id_letter  = (record.get("id_letter")  or "").strip()
+    notes      = (record.get("notes")      or "").strip()
 
     # Convert standard Drive export URL to Google User Content direct image URL for reliable hotlinking
     if image_url and "drive.google.com" in image_url:
@@ -839,19 +791,22 @@ def show_record_detail(record) -> None:
             with col_img_center:
                 st.image(image_url, width=180)
         except Exception:
-            st.caption("🎶 תמונה לא זמינה")
+            st.markdown(
+                """
+                <div style="text-align: center; padding: 2rem 0; color: #7f8c8d; direction: rtl;">
+                    <p style="font-size: 1.1rem; margin: 0; font-weight: 500;">אין תמונה זמינה</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
     else:
         st.markdown(
             """
-            <div style="
-                background: linear-gradient(135deg,#9DBCE3 0%,#c7ddf5 100%);
-                border-radius:12px; height:120px; width:120px;
-                margin: 0 auto;
-                display:flex; align-items:center; justify-content:center;
-                font-size:2.5rem;">
-            🏀
-            </div>""",
-            unsafe_allow_html=True,
+            <div style="text-align: center; padding: 2rem 0; color: #7f8c8d; direction: rtl;">
+                <p style="font-size: 1.1rem; margin: 0; font-weight: 500;">אין תמונה זמינה</p>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
 
     # ── Metadata ───────────────────────────────────────────────────────────
@@ -859,16 +814,33 @@ def show_record_detail(record) -> None:
     if id_letter:
         location += f" &nbsp;•&nbsp; אות {id_letter}"
 
+    # Extract Year from notes if not directly in the record
+    year = record.get("year")
+    if not year and notes:
+        # Try to find a 4-digit year like 1987 or 2021 in the notes
+        match = re.search(r'\b(19\d{2}|20\d{2})\b', notes)
+        if match:
+            year = match.group(1)
+    if not year:
+        year = "לא ידוע"
+
     st.markdown(
         f"""
         <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
             <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
             <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
+            <p style="margin:0.2rem 0 0; color:#8292A1; font-size:0.9rem;"><strong>שנה:</strong> {year}</p>
             <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
+            {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
+    if st.button("✕ סגור", use_container_width=True):
+        st.session_state["detail_record"] = None
+        st.rerun()
 
 
 # ---------------------------------------------------------------------------
@@ -1131,9 +1103,11 @@ else:
 
     # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
     display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
-    display_df = page_df[display_cols]
+    display_df = page_df[display_cols].copy()
+    display_df.insert(0, "צפייה", "👁️")
     
     column_config = {
+        "צפייה": st.column_config.TextColumn("צפייה", width="small"),
         "notes": st.column_config.TextColumn("הערות"),
         "name": st.column_config.TextColumn("שם התקליט"),
         "artist": st.column_config.TextColumn("אמן"),
@@ -1141,8 +1115,8 @@ else:
     }
 
     if st.session_state.get("is_admin", False):
-        # Admin: editable table with save (no selection/checkboxes)
-        editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}"
+        # Admin: editable table with save + row-click detail popup
+        editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
         edited_df = st.data_editor(
             display_df,
             column_config=column_config,
@@ -1151,7 +1125,22 @@ else:
             num_rows="fixed",
             height=320,
             key=editor_key,
+            on_select="rerun",
+            selection_mode="single-row",
         )
+
+        # Row-click detection (via session_state key for data_editor)
+        _editor_state = st.session_state.get(editor_key, {})
+        _sel_rows = (
+            _editor_state.get("selection", {}).get("rows", [])
+            if isinstance(_editor_state, dict)
+            else []
+        )
+        if _sel_rows:
+            _rec = page_df.iloc[_sel_rows[0]].to_dict()
+            st.session_state["detail_record"] = _rec
+            st.session_state["selection_counter"] += 1
+            st.rerun()
 
         if not display_df.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
@@ -1161,6 +1150,8 @@ else:
                     if not original_row.equals(edited_row):
                         doc_id = filtered_df.loc[idx, "id"]
                         changes = edited_row.to_dict()
+                        if "צפייה" in changes:
+                            del changes["צפייה"]
                         if "box" in changes:
                             changes["box"] = int(changes["box"])
                         record_store.update(db, doc_id, changes)
@@ -1179,48 +1170,24 @@ else:
                         pass
                 st.rerun()
     else:
-        # Public: read-only table with native st.columns loop (wrapped in public-table-container)
-        st.markdown('<div class="public-table-container">', unsafe_allow_html=True)
-        with st.container(height=340, border=True):
-            # Table headers
-            cols_layout = [0.8, 1.2, 3.5, 3.5, 2.5] if show_box else [0.8, 4.0, 4.0, 3.0]
-            header_cols = st.columns(cols_layout)
-            header_cols[0].markdown("**צפייה**")
-            if show_box:
-                header_cols[1].markdown("**קופסא**")
-                header_cols[2].markdown("**הערות**")
-                header_cols[3].markdown("**שם התקליט**")
-                header_cols[4].markdown("**אמן**")
-            else:
-                header_cols[1].markdown("**הערות**")
-                header_cols[2].markdown("**שם התקליט**")
-                header_cols[3].markdown("**אמן**")
-                
-            st.markdown("<hr style='margin: 0.2rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
-            
-            # Table rows
-            for idx, row in page_df.iterrows():
-                cols = st.columns(cols_layout)
-                with cols[0]:
-                    if st.button("👁️", key=f"view_btn_{row['id']}", use_container_width=True):
-                        st.session_state["detail_record"] = row.to_dict()
-                        st.rerun()
-                if show_box:
-                    box_val = row.get("box", 1)
-                    let_val = row.get("id_letter", "")
-                    loc_str = str(box_val)
-                    if let_val:
-                        loc_str += f" ({let_val})"
-                    cols[1].write(loc_str)
-                    cols[2].write(row.get("notes", "") or "")
-                    cols[3].write(row.get("name", "לא ידוע") or "לא ידוע")
-                    cols[4].write(row.get("artist", "") or "")
-                else:
-                    cols[1].write(row.get("notes", "") or "")
-                    cols[2].write(row.get("name", "לא ידוע") or "לא ידוע")
-                    cols[3].write(row.get("artist", "") or "")
-                st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9; opacity: 0.6;'>", unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Public: read-only table with row-click detail popup
+        df_key = f"df_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
+        event = st.dataframe(
+            display_df,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            height=320,
+            key=df_key,
+            on_select="rerun",
+            selection_mode="single-row",
+        )
+        _pub_rows = event.selection.rows
+        if _pub_rows:
+            _rec = page_df.iloc[_pub_rows[0]].to_dict()
+            st.session_state["detail_record"] = _rec
+            st.session_state["selection_counter"] += 1
+            st.rerun()
 
 # Footer Paginators tightly grouped
 paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
