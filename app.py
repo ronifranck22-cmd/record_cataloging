@@ -1183,14 +1183,18 @@ else:
         st.markdown('<div class="public-table-container">', unsafe_allow_html=True)
         with st.container(height=340, border=True):
             # Table headers
-            cols_layout = [0.8, 3.5, 3.5, 2.5, 1.2] if show_box else [0.8, 4.0, 4.0, 3.0]
+            cols_layout = [0.8, 1.2, 3.5, 3.5, 2.5] if show_box else [0.8, 4.0, 4.0, 3.0]
             header_cols = st.columns(cols_layout)
             header_cols[0].markdown("**צפייה**")
-            header_cols[1].markdown("**הערות**")
-            header_cols[2].markdown("**שם התקליט**")
-            header_cols[3].markdown("**אמן**")
             if show_box:
-                header_cols[4].markdown("**קופסא**")
+                header_cols[1].markdown("**קופסא**")
+                header_cols[2].markdown("**הערות**")
+                header_cols[3].markdown("**שם התקליט**")
+                header_cols[4].markdown("**אמן**")
+            else:
+                header_cols[1].markdown("**הערות**")
+                header_cols[2].markdown("**שם התקליט**")
+                header_cols[3].markdown("**אמן**")
                 
             st.markdown("<hr style='margin: 0.2rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
             
@@ -1201,16 +1205,20 @@ else:
                     if st.button("👁️", key=f"view_btn_{row['id']}", use_container_width=True):
                         st.session_state["detail_record"] = row.to_dict()
                         st.rerun()
-                cols[1].write(row.get("notes", "") or "")
-                cols[2].write(row.get("name", "לא ידוע") or "לא ידוע")
-                cols[3].write(row.get("artist", "") or "")
                 if show_box:
                     box_val = row.get("box", 1)
                     let_val = row.get("id_letter", "")
                     loc_str = str(box_val)
                     if let_val:
                         loc_str += f" ({let_val})"
-                    cols[4].write(loc_str)
+                    cols[1].write(loc_str)
+                    cols[2].write(row.get("notes", "") or "")
+                    cols[3].write(row.get("name", "לא ידוע") or "לא ידוע")
+                    cols[4].write(row.get("artist", "") or "")
+                else:
+                    cols[1].write(row.get("notes", "") or "")
+                    cols[2].write(row.get("name", "לא ידוע") or "לא ידוע")
+                    cols[3].write(row.get("artist", "") or "")
                 st.markdown("<hr style='margin: 0.1rem 0; border-color: #f1f5f9; opacity: 0.6;'>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
