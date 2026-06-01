@@ -1107,9 +1107,30 @@ else:
     if st.session_state.get("is_admin", False):
         # Admin: editable table with save + row-click detail popup
         editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
+        
+        # Clean plain DataFrame for editing (excluding the View column)
+        admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
+        admin_df = page_df[admin_cols].copy()
+        
+        # Force plain types to avoid TypeErrors / object column issues
+        admin_df["notes"] = admin_df["notes"].fillna("").astype(str)
+        admin_df["name"] = admin_df["name"].fillna("").astype(str)
+        admin_df["artist"] = admin_df["artist"].fillna("").astype(str)
+        if "box" in admin_df.columns:
+            admin_df["box"] = admin_df["box"].fillna(1).astype(int)
+            
+        admin_config = {
+            "notes": st.column_config.TextColumn("הערות"),
+            "name": st.column_config.TextColumn("שם התקליט"),
+            "artist": st.column_config.TextColumn("אמן"),
+            "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1) if show_box else None,
+        }
+        # Remove None configs
+        admin_config = {k: v for k, v in admin_config.items() if v is not None}
+
         edited_df = st.data_editor(
-            display_df,
-            column_config=column_config,
+            admin_df,
+            column_config=admin_config,
             use_container_width=True,
             hide_index=True,
             num_rows="fixed",
@@ -1132,16 +1153,14 @@ else:
             st.session_state["selection_counter"] += 1
             st.rerun()
 
-        if not display_df.equals(edited_df):
+        if not admin_df.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
                 for idx in edited_df.index:
-                    original_row = display_df.loc[idx]
+                    original_row = admin_df.loc[idx]
                     edited_row = edited_df.loc[idx]
                     if not original_row.equals(edited_row):
                         doc_id = filtered_df.loc[idx, "id"]
                         changes = edited_row.to_dict()
-                        if "צפייה" in changes:
-                            del changes["צפייה"]
                         if "box" in changes:
                             changes["box"] = int(changes["box"])
                         record_store.update(db, doc_id, changes)
