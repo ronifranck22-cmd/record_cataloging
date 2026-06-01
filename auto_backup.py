@@ -156,6 +156,7 @@ def rotate_and_backup(firebase_secrets: dict = None) -> None:
     This function is completely self-contained and fails silently (with print logging)
     to avoid blocking the main user workflow or throwing UI errors.
     """
+    print("Auto-Backup: rotate_and_backup background task triggered.")
     try:
         # 1. Fetch entire Firestore collection
         db = get_db()
