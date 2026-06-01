@@ -12,8 +12,10 @@ import base64
 
 from db_client import get_db
 import record_store
-from drive_backup import upload_backup_to_drive, build_drive_service
+from drive_backup import build_drive_service
 from image_sync import sync_single_record
+from auto_backup import rotate_and_backup
+import threading
 from google.api_core.exceptions import ResourceExhausted
 
 # ---------------------------------------------------------------------------
@@ -888,17 +890,13 @@ def add_record_dialog():
                                 load_data()
                         except Exception:
                             pass  # Image sync failure is non-fatal
-                # --- Auto-backup to Google Drive ---
-                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
-                if _bk_folder and st.secrets.get("enable_backup", True):
+                # --- Auto-backup to Google Drive (background task) ---
+                if st.secrets.get("enable_backup", True):
                     try:
-                        upload_backup_to_drive(
-                            st.session_state["df"],
-                            st.secrets["firebase"],
-                            _bk_folder,
-                        )
-                    except Exception:
-                        pass
+                        firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                        threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+                    except Exception as e:
+                        print(f"Auto-Backup: Thread spawn failed: {e}")
                 st.rerun()
 
 @st.dialog("מחיקת תקליט")
@@ -915,17 +913,13 @@ def delete_record_dialog():
         record_store.delete(db, delete_options[selected_delete])
         st.cache_data.clear()  # Invalidate cache so next read hits Firestore
         load_data()
-        # --- Auto-backup to Google Drive ---
-        _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
-        if _bk_folder and st.secrets.get("enable_backup", True):
+        # --- Auto-backup to Google Drive (background task) ---
+        if st.secrets.get("enable_backup", True):
             try:
-                upload_backup_to_drive(
-                    st.session_state["df"],
-                    st.secrets["firebase"],
-                    _bk_folder,
-                )
-            except Exception:
-                pass
+                firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+            except Exception as e:
+                print(f"Auto-Backup: Thread spawn failed: {e}")
         st.rerun()
 
 @st.dialog("עדכון תקליט")
@@ -998,17 +992,13 @@ def update_record_dialog():
                                 load_data()
                         except Exception:
                             pass  # Image sync failure is non-fatal
-                # --- Auto-backup to Google Drive ---
-                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
-                if _bk_folder and st.secrets.get("enable_backup", True):
+                # --- Auto-backup to Google Drive (background task) ---
+                if st.secrets.get("enable_backup", True):
                     try:
-                        upload_backup_to_drive(
-                            st.session_state["df"],
-                            st.secrets["firebase"],
-                            _bk_folder,
-                        )
-                    except Exception:
-                        pass
+                        firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                        threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+                    except Exception as e:
+                        print(f"Auto-Backup: Thread spawn failed: {e}")
                 st.rerun()
 
 @st.dialog("העלאת קובץ")
@@ -1157,17 +1147,13 @@ else:
                         record_store.update(db, doc_id, changes)
                 st.cache_data.clear()  # Invalidate cache so next read hits Firestore
                 load_data()
-                # --- Auto-backup to Google Drive (after all cell edits are saved) ---
-                _bk_folder = st.secrets.get("gdrive_backup_folder_id", "")
-                if _bk_folder and st.secrets.get("enable_backup", True):
+                # --- Auto-backup to Google Drive (background task) ---
+                if st.secrets.get("enable_backup", True):
                     try:
-                        upload_backup_to_drive(
-                            st.session_state["df"],
-                            st.secrets["firebase"],
-                            _bk_folder,
-                        )
-                    except Exception:
-                        pass
+                        firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                        threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+                    except Exception as e:
+                        print(f"Auto-Backup: Thread spawn failed: {e}")
                 st.rerun()
     else:
         # Public: read-only table with row-click detail popup
