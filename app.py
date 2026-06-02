@@ -1108,17 +1108,21 @@ else:
         # Admin: editable table with save + row-click detail popup
         editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
         
-        # Clean plain DataFrame for editing (excluding the View column)
+        # Data Isolation: Create a clean copy of the paginated dataframe for editing (excluding the 'View' column)
         admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
-        admin_df = page_df[admin_cols].copy()
+        df_for_editing = page_df[admin_cols].copy()
         
-        # Force plain types to avoid TypeErrors / object column issues
-        admin_df["notes"] = admin_df["notes"].fillna("").astype(str)
-        admin_df["name"] = admin_df["name"].fillna("").astype(str)
-        admin_df["artist"] = admin_df["artist"].fillna("").astype(str)
-        if "box" in admin_df.columns:
-            admin_df["box"] = admin_df["box"].fillna(1).astype(int)
+        # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
+        df_for_editing = df_for_editing.reset_index(drop=True)
+        
+        # Cleanup: Force plain Python types on the editing dataframe
+        df_for_editing["notes"] = df_for_editing["notes"].fillna("").astype(str)
+        df_for_editing["name"] = df_for_editing["name"].fillna("").astype(str)
+        df_for_editing["artist"] = df_for_editing["artist"].fillna("").astype(str)
+        if "box" in df_for_editing.columns:
+            df_for_editing["box"] = df_for_editing["box"].fillna(1).astype(int)
             
+        # Column Configuration: Explicitly define types to prevent guessing and serializer issues
         admin_config = {
             "notes": st.column_config.TextColumn("הערות"),
             "name": st.column_config.TextColumn("שם התקליט"),
@@ -1129,7 +1133,7 @@ else:
         admin_config = {k: v for k, v in admin_config.items() if v is not None}
 
         edited_df = st.data_editor(
-            admin_df,
+            df_for_editing,
             column_config=admin_config,
             use_container_width=True,
             hide_index=True,
@@ -1148,18 +1152,20 @@ else:
             else []
         )
         if _sel_rows:
+            # Map selected contiguous row index back to actual record dict in page_df
             _rec = page_df.iloc[_sel_rows[0]].to_dict()
             st.session_state["detail_record"] = _rec
             st.session_state["selection_counter"] += 1
             st.rerun()
 
-        if not admin_df.equals(edited_df):
+        if not df_for_editing.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
                 for idx in edited_df.index:
-                    original_row = admin_df.loc[idx]
+                    original_row = df_for_editing.loc[idx]
                     edited_row = edited_df.loc[idx]
                     if not original_row.equals(edited_row):
-                        doc_id = filtered_df.loc[idx, "id"]
+                        # Map contiguous index back to Firestore document using page_df.iloc
+                        doc_id = page_df.iloc[idx]["id"]
                         changes = edited_row.to_dict()
                         if "box" in changes:
                             changes["box"] = int(changes["box"])
