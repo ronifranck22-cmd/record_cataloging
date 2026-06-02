@@ -1140,23 +1140,7 @@ else:
             num_rows="fixed",
             height=320,
             key=editor_key,
-            on_select="rerun",
-            selection_mode="single-row",
         )
-
-        # Row-click detection (via session_state key for data_editor)
-        _editor_state = st.session_state.get(editor_key, {})
-        _sel_rows = (
-            _editor_state.get("selection", {}).get("rows", [])
-            if isinstance(_editor_state, dict)
-            else []
-        )
-        if _sel_rows:
-            # Map selected contiguous row index back to actual record dict in page_df
-            _rec = page_df.iloc[_sel_rows[0]].to_dict()
-            st.session_state["detail_record"] = _rec
-            st.session_state["selection_counter"] += 1
-            st.rerun()
 
         if not df_for_editing.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
