@@ -41,13 +41,13 @@ def get_non_interactive_creds(firebase_secrets: dict = None) -> Credentials | se
                     creds.refresh(Request())
                     with open("token.json", "w") as token_file:
                         token_file.write(creds.to_json())
-                    print("Auto-Backup: Refreshed credentials and saved to token.json")
+                    print("Auto-Backup: Refreshed credentials and saved to token.json", flush=True)
                 except Exception as refresh_err:
-                    print(f"Auto-Backup: Error refreshing token.json: {refresh_err}")
+                    print(f"Auto-Backup: Error refreshing token.json: {refresh_err}", flush=True)
             if creds and creds.valid:
                 return creds
         except Exception as e:
-            print(f"Auto-Backup: Error loading or refreshing token.json: {e}")
+            print(f"Auto-Backup: Error loading or refreshing token.json: {e}", flush=True)
             
     # 2. Try Firebase service account secrets passed in
     if firebase_secrets:
@@ -57,7 +57,7 @@ def get_non_interactive_creds(firebase_secrets: dict = None) -> Credentials | se
                 scopes=_SCOPES,
             )
         except Exception as e:
-            print(f"Auto-Backup: Error loading service account credentials: {e}")
+            print(f"Auto-Backup: Error loading service account credentials: {e}", flush=True)
 
     # 3. Fallback to Streamlit secrets (gdrive_token)
     try:
@@ -162,7 +162,7 @@ def rotate_and_backup(firebase_secrets: dict = None) -> None:
     This function is completely self-contained and fails silently (with print logging)
     to avoid blocking the main user workflow or throwing UI errors.
     """
-    print("Auto-Backup: rotate_and_backup background task triggered.")
+    print("Auto-Backup: rotate_and_backup background task triggered.", flush=True)
     try:
         # 1. Fetch entire Firestore collection
         db = get_db()
@@ -185,7 +185,7 @@ def rotate_and_backup(firebase_secrets: dict = None) -> None:
         filename = f"records_backup_{timestamp}.csv"
         new_file_id = _upload_csv(service, df, folder_id, filename)
         
-        print(f"Auto-Backup: Successfully backed up to Records_Backups/ {filename} (ID: {new_file_id})")
+        print(f"Auto-Backup: Successfully backed up to Records_Backups/ {filename} (ID: {new_file_id})", flush=True)
         
     except Exception as e:
-        print(f"Auto-Backup Error: {e}")
+        print(f"Auto-Backup Error: {e}", flush=True)

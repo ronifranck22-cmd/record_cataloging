@@ -912,9 +912,9 @@ def add_record_dialog():
                         firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                         threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
                     except Exception as e:
-                        print(f"Auto-Backup: Thread spawn failed: {e}")
+                        print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
                 else:
-                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.")
+                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
                 st.rerun()
 
 @st.dialog("מחיקת תקליט")
@@ -937,9 +937,9 @@ def delete_record_dialog():
                 firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                 threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
             except Exception as e:
-                print(f"Auto-Backup: Thread spawn failed: {e}")
+                print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
         else:
-            print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.")
+            print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
         st.rerun()
 
 @st.dialog("עדכון תקליט")
@@ -1018,9 +1018,9 @@ def update_record_dialog():
                         firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                         threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
                     except Exception as e:
-                        print(f"Auto-Backup: Thread spawn failed: {e}")
+                        print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
                 else:
-                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.")
+                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
                 st.rerun()
 
 @st.dialog("העלאת קובץ")
@@ -1184,9 +1184,9 @@ else:
                         firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                         threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
                     except Exception as e:
-                        print(f"Auto-Backup: Thread spawn failed: {e}")
+                        print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
                 else:
-                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.")
+                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
                 st.rerun()
     else:
         # Public: read-only table with row-click detail popup
