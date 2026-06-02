@@ -37,7 +37,13 @@ def get_non_interactive_creds(firebase_secrets: dict = None) -> Credentials | se
         try:
             creds = Credentials.from_authorized_user_file("token.json", _SCOPES)
             if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
+                try:
+                    creds.refresh(Request())
+                    with open("token.json", "w") as token_file:
+                        token_file.write(creds.to_json())
+                    print("Auto-Backup: Refreshed credentials and saved to token.json")
+                except Exception as refresh_err:
+                    print(f"Auto-Backup: Error refreshing token.json: {refresh_err}")
             if creds and creds.valid:
                 return creds
         except Exception as e:
