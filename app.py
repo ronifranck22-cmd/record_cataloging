@@ -763,86 +763,102 @@ def show_record_detail(record: dict) -> None:
     """
     import re
     import urllib.parse
+    import pandas as pd
 
-    if not isinstance(record, dict):
-        # Fallback if record is not a dict
-        st.error("לא ניתן להציג פרטים עבור רשומה זו.")
-        return
-    image_url = record.get("image_url", "").strip() if record.get("image_url") else None
-    artist     = (record.get("artist")     or "לא ידוע").strip()
-    name       = (record.get("name")       or "לא ידוע").strip()
-    box        = record.get("box", "")
-    id_letter  = (record.get("id_letter")  or "").strip()
-    notes      = (record.get("notes")      or "").strip()
+    try:
+        if not isinstance(record, dict):
+            st.error("לא ניתן להציג פרטים עבור רשומה זו.")
+            return
 
-    # Convert standard Drive export URL to Google User Content direct image URL for reliable hotlinking
-    if image_url and "drive.google.com" in image_url:
-        try:
-            parsed = urllib.parse.urlparse(image_url)
-            qs = urllib.parse.parse_qs(parsed.query)
-            file_id = qs.get("id", [None])[0]
-            if file_id:
-                image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
-        except Exception:
-            pass
+        def safe_str(val) -> str:
+            if val is None:
+                return ""
+            if isinstance(val, float) and pd.isna(val):
+                return ""
+            return str(val).strip()
 
-    # ── Album cover ────────────────────────────────────────────────────────
-    if image_url:
-        try:
-            col_img_left, col_img_center, col_img_right = st.columns([1, 2, 1])
-            with col_img_center:
-                st.image(image_url, width=180)
-        except Exception:
-            st.markdown(
-                """
-                <div style="text-align: center; padding: 2rem 0; color: #7f8c8d; direction: rtl;">
-                    <p style="font-size: 1.1rem; margin: 0; font-weight: 500;">אין תמונה זמינה</p>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-    else:
+        # Clean all input values safely
+        image_raw = record.get("image_url")
+        image_url = safe_str(image_raw)
+        if not image_url:
+            image_url = None
+
+        artist     = safe_str(record.get("artist")) or "לא ידוע"
+        name       = safe_str(record.get("name")) or "לא ידוע"
+        id_letter  = safe_str(record.get("id_letter"))
+        notes      = safe_str(record.get("notes"))
+        
+        # Handle box safely
+        box_val = record.get("box")
+        if box_val is None or (isinstance(box_val, float) and pd.isna(box_val)):
+            box = "לא ידוע"
+        else:
+            try:
+                box = str(int(float(box_val)))
+            except Exception:
+                box = str(box_val)
+
+        # Convert standard Drive export URL to Google User Content direct image URL for reliable hotlinking
+        if image_url and "drive.google.com" in image_url:
+            try:
+                parsed = urllib.parse.urlparse(image_url)
+                qs = urllib.parse.parse_qs(parsed.query)
+                file_id = qs.get("id", [None])[0]
+                if file_id:
+                    image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
+            except Exception:
+                pass
+
+        # ── Album cover ────────────────────────────────────────────────────────
+        if image_url:
+            try:
+                col_img_left, col_img_center, col_img_right = st.columns([1, 2, 1])
+                with col_img_center:
+                    st.image(image_url, width=180)
+            except Exception:
+                st.info("לא קיימת תמונה לרשומה זו")
+        else:
+            st.info("לא קיימת תמונה לרשומה זו")
+
+        # ── Metadata ───────────────────────────────────────────────────────────
+        location = f"קופסא {box}"
+        if id_letter:
+            location += f" &nbsp;•&nbsp; אות {id_letter}"
+
+        # Extract Year from notes if not directly in the record
+        year = record.get("year")
+        if not year and notes:
+            # Try to find a 4-digit year like 1987 or 2021 in the notes
+            match = re.search(r'\b(19\d{2}|20\d{2})\b', notes)
+            if match:
+                year = match.group(1)
+        if not year:
+            year = "לא ידוע"
+
         st.markdown(
-            """
-            <div style="text-align: center; padding: 2rem 0; color: #7f8c8d; direction: rtl;">
-                <p style="font-size: 1.1rem; margin: 0; font-weight: 500;">אין תמונה זמינה</p>
+            f"""
+            <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
+                <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
+                <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
+                <p style="margin:0.2rem 0 0; color:#8292A1; font-size:0.9rem;"><strong>שנה:</strong> {year}</p>
+                <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
+                {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
             </div>
             """,
-            unsafe_allow_html=True
+            unsafe_allow_html=True,
         )
 
-    # ── Metadata ───────────────────────────────────────────────────────────
-    location = f"קופסא {box}"
-    if id_letter:
-        location += f" &nbsp;•&nbsp; אות {id_letter}"
+        st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
+        if st.button("✕ סגור", use_container_width=True):
+            st.session_state["detail_record"] = None
+            st.rerun()
 
-    # Extract Year from notes if not directly in the record
-    year = record.get("year")
-    if not year and notes:
-        # Try to find a 4-digit year like 1987 or 2021 in the notes
-        match = re.search(r'\b(19\d{2}|20\d{2})\b', notes)
-        if match:
-            year = match.group(1)
-    if not year:
-        year = "לא ידוע"
-
-    st.markdown(
-        f"""
-        <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
-            <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
-            <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
-            <p style="margin:0.2rem 0 0; color:#8292A1; font-size:0.9rem;"><strong>שנה:</strong> {year}</p>
-            <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
-            {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
-    if st.button("✕ סגור", use_container_width=True):
-        st.session_state["detail_record"] = None
-        st.rerun()
+    except Exception as e:
+        st.error("ארעה שגיאה בהצגת פרטי האלבום.")
+        st.caption(f"שגיאה: {e}")
+        if st.button("✕ סגור", key="detail_err_close", use_container_width=True):
+            st.session_state["detail_record"] = None
+            st.rerun()
 
 
 # ---------------------------------------------------------------------------
