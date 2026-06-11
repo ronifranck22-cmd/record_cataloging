@@ -32,7 +32,7 @@ def get_non_interactive_creds(firebase_secrets: dict = None) -> Credentials | se
     """Load credentials non-interactively to avoid blocking background threads."""
     creds = None
     
-    # 1. Try authorized token.json
+    # 1. Try authorized token.json (local workspace / cached disk)
     if os.path.exists("token.json"):
         try:
             creds = Credentials.from_authorized_user_file("token.json", _SCOPES)
@@ -49,7 +49,24 @@ def get_non_interactive_creds(firebase_secrets: dict = None) -> Credentials | se
         except Exception as e:
             print(f"Auto-Backup: Error loading or refreshing token.json: {e}", flush=True)
             
-    # 2. Try Firebase service account secrets passed in
+    # 2. Try Streamlit secrets (gdrive_token) - Preferred for Cloud deployment
+    try:
+        import streamlit as st
+        if "gdrive_token" in st.secrets:
+            token_info = dict(st.secrets["gdrive_token"])
+            creds = Credentials.from_authorized_user_info(token_info, _SCOPES)
+            if creds and creds.expired and creds.refresh_token:
+                try:
+                    creds.refresh(Request())
+                    print("Auto-Backup: Refreshed gdrive_token from Streamlit secrets.", flush=True)
+                except Exception as refresh_err:
+                    print(f"Auto-Backup: Error refreshing gdrive_token: {refresh_err}", flush=True)
+            if creds and creds.valid:
+                return creds
+    except Exception as e:
+        print(f"Auto-Backup: Error loading/refreshing gdrive_token from secrets: {e}", flush=True)
+
+    # 3. Try Firebase service account secrets passed in (as last fallback)
     if firebase_secrets:
         try:
             return service_account.Credentials.from_service_account_info(
@@ -58,17 +75,6 @@ def get_non_interactive_creds(firebase_secrets: dict = None) -> Credentials | se
             )
         except Exception as e:
             print(f"Auto-Backup: Error loading service account credentials: {e}", flush=True)
-
-    # 3. Fallback to Streamlit secrets (gdrive_token)
-    try:
-        import streamlit as st
-        if "gdrive_token" in st.secrets:
-            token_info = dict(st.secrets["gdrive_token"])
-            creds = Credentials.from_authorized_user_info(token_info, _SCOPES)
-            if creds and creds.valid:
-                return creds
-    except Exception:
-        pass
         
     return None
 
