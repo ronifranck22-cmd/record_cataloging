@@ -1238,10 +1238,10 @@ else:
     # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
     display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
     display_df = page_df[display_cols].copy()
-    display_df.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+    display_df.insert(0, "עטיפה", page_df["image_url"].apply(lambda url: True if (url and isinstance(url, str) and url.strip()) else None))
     
     column_config = {
-        "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
+        "עטיפה": st.column_config.CheckboxColumn("עטיפה", width="small", help="האם קיימת עטיפה", disabled=True),
         "notes": st.column_config.TextColumn("הערות"),
         "name": st.column_config.TextColumn("שם התקליט"),
         "artist": st.column_config.TextColumn("אמן"),
@@ -1255,7 +1255,7 @@ else:
         # Data Isolation: Create a clean copy of the paginated dataframe for editing
         admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
         df_for_editing = page_df[admin_cols].copy()
-        df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+        df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(lambda url: True if (url and isinstance(url, str) and url.strip()) else None))
         
         # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
         df_for_editing = df_for_editing.reset_index(drop=True)
@@ -1269,7 +1269,7 @@ else:
             
         # Column Configuration: Explicitly define types to prevent guessing and serializer issues
         admin_config = {
-            "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
+            "עטיפה": st.column_config.CheckboxColumn("עטיפה", width="small", help="האם קיימת עטיפה", disabled=True),
             "notes": st.column_config.TextColumn("הערות"),
             "name": st.column_config.TextColumn("שם התקליט"),
             "artist": st.column_config.TextColumn("אמן"),
