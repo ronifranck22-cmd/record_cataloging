@@ -1219,13 +1219,29 @@ else:
     END_IDX = START_IDX + 50
     page_df = filtered_df.iloc[START_IDX:END_IDX]
 
+    # Convert image URLs for ImageColumn rendering
+    import urllib.parse
+    def clean_drive_url(url):
+        if not url or not isinstance(url, str):
+            return None
+        if "drive.google.com" in url:
+            try:
+                parsed = urllib.parse.urlparse(url)
+                qs = urllib.parse.parse_qs(parsed.query)
+                file_id = qs.get("id", [None])[0]
+                if file_id:
+                    return f"https://lh3.googleusercontent.com/d/{file_id}"
+            except Exception:
+                pass
+        return url
+
     # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
     display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
     display_df = page_df[display_cols].copy()
-    display_df.insert(0, "צפייה", "👁️")
+    display_df.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
     
     column_config = {
-        "צפייה": st.column_config.TextColumn("צפייה", width="small"),
+        "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
         "notes": st.column_config.TextColumn("הערות"),
         "name": st.column_config.TextColumn("שם התקליט"),
         "artist": st.column_config.TextColumn("אמן"),
