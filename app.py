@@ -48,7 +48,7 @@ st.markdown(
     """
     <style>
     /* Google Fonts */
-    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
     @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
     /* CSS Variables for Cool Pastel Blue Theme */
@@ -79,6 +79,16 @@ st.markdown(
         background-color: var(--color-bg-main) !important;
     }
 
+    /* Glassmorphism Sidebar */
+    [data-testid="stSidebar"] {
+        background: rgba(244, 248, 251, 0.75) !important;
+        backdrop-filter: blur(16px) !important;
+        border-left: 1px solid rgba(226, 234, 241, 0.5) !important;
+    }
+    [data-testid="stSidebar"] > div {
+        background: transparent !important;
+    }
+
     /* Hide Unwanted Streamlit Elements safely, but keep Header for sidebar toggle */
     header { background-color: transparent !important; box-shadow: none !important; }
     footer { display: none !important; }
@@ -104,19 +114,22 @@ st.markdown(
         color: var(--color-text-main);
     }
 
-    /* Header Typography Adjustment */
-    /* Header Typography Adjustment */
+    /* Header Typography Adjustment with Premium Gradient */
     .main-header {
         text-align: center;
         margin-bottom: 0;
     }
     .main-header h1 {
-        font-size: 2.2rem;
+        font-family: 'Outfit', 'Assistant', sans-serif !important;
+        font-size: 2.3rem !important;
         line-height: 1.1;
-        font-weight: 800;
-        color: var(--color-primary);
+        font-weight: 900 !important;
+        background: linear-gradient(135deg, #7199c7 0%, #a4c4eb 100%);
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
         margin-bottom: 0 !important;
-        letter-spacing: -0.02em;
+        letter-spacing: -0.02em !important;
+        text-align: center;
     }
 
     /* Brand Row (Desktop Flex) */
@@ -167,7 +180,7 @@ st.markdown(
         border-radius: var(--radius-md) !important;
         font-weight: 600 !important;
         font-size: 0.95rem !important;
-        background-color: var(--color-bg-surface) !important; 
+        background-color: rgba(255, 255, 255, 0.7) !important; 
         color: var(--color-text-main) !important;            
         border: 1px solid var(--color-border) !important;
         height: 38px !important;
@@ -175,6 +188,7 @@ st.markdown(
         box-shadow: var(--shadow-sm) !important;
         transition: var(--transition) !important;
         margin-top: 0px !important;
+        backdrop-filter: blur(4px) !important;
     }
     
     [data-testid="stButton"] button:hover {
@@ -182,7 +196,7 @@ st.markdown(
         box-shadow: var(--shadow-hover) !important; 
         border-color: var(--color-primary) !important;
         color: var(--color-primary) !important;
-        background-color: #EBF4FA !important; /* Soft pastel blue on hover */
+        background-color: rgba(235, 244, 250, 0.85) !important; 
     }
     
     [data-testid="stButton"] button:active {
@@ -191,7 +205,7 @@ st.markdown(
 
     /* Reset button inside sidebar */
     #reset-filters-anchor + div [data-testid="stButton"] button {
-        background-color: var(--color-bg-main) !important;
+        background-color: rgba(255, 255, 255, 0.5) !important;
         border-color: var(--color-border) !important;
         height: 38px !important;
         font-size: 0.85rem !important;
@@ -204,7 +218,6 @@ st.markdown(
     }
 
     /* Button Toolbar (Web) - Robust Flexbox Layout */
-    /* Hide the anchor container so it doesn't disrupt Flexbox or Grid packing */
     div.element-container:has(#action-buttons-anchor) {
         display: none !important;
     }
@@ -217,7 +230,7 @@ st.markdown(
         flex-wrap: wrap !important;
         gap: 8px !important;
         padding-bottom: 0px;
-        direction: rtl !important; /* Standard RTL for action buttons */
+        direction: rtl !important;
     }
     
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container {
@@ -226,10 +239,70 @@ st.markdown(
         padding: 0 !important;
     }
     
-    /* Ensure buttons maintain uniform size and Corporate Blue aesthetic */
+    /* Color-coded buttons in the toolbar */
     div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) [data-testid="stButton"] button {
         width: 140px !important;
         min-width: 140px !important;
+        border-radius: 14px !important;
+        font-family: 'Assistant', sans-serif !important;
+        font-weight: 700 !important;
+        font-size: 0.9rem !important;
+        border: 1.5px solid var(--color-border) !important;
+        box-shadow: var(--shadow-sm) !important;
+        transition: var(--transition) !important;
+        height: 38px !important;
+    }
+
+    /* Emerald Accent for Add Record */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(2) button {
+        color: #10b981 !important;
+        border-color: rgba(16, 185, 129, 0.25) !important;
+        background-color: rgba(16, 185, 129, 0.02) !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(2) button:hover {
+        background-color: #ecfdf5 !important;
+        border-color: #10b981 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(16, 185, 129, 0.15) !important;
+    }
+
+    /* Rose Accent for Delete Record */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(3) button {
+        color: #ef4444 !important;
+        border-color: rgba(239, 68, 68, 0.25) !important;
+        background-color: rgba(239, 68, 68, 0.02) !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(3) button:hover {
+        background-color: #fff1f2 !important;
+        border-color: #ef4444 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(239, 68, 68, 0.15) !important;
+    }
+
+    /* Blue Accent for Update Record */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(4) button {
+        color: #3b82f6 !important;
+        border-color: rgba(59, 130, 246, 0.25) !important;
+        background-color: rgba(59, 130, 246, 0.02) !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(4) button:hover {
+        background-color: #eff6ff !important;
+        border-color: #3b82f6 !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(59, 130, 246, 0.15) !important;
+    }
+
+    /* Slate Accent for Upload CSV */
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(5) button {
+        color: #64748b !important;
+        border-color: rgba(100, 116, 139, 0.25) !important;
+        background-color: rgba(100, 116, 139, 0.02) !important;
+    }
+    div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div:nth-child(5) button:hover {
+        background-color: #f8fafc !important;
+        border-color: #64748b !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 12px rgba(100, 116, 139, 0.15) !important;
     }
     
     /* Square Download Button Styling */
@@ -263,18 +336,19 @@ st.markdown(
         flex: 0 0 auto !important;
     }
 
-    /* Clean White Table Background + Surface Shadows */
+    /* Frosted-Glass Table Background + Surface Shadows */
     [data-testid="stDataFrame"], [data-testid="stDataEditor"], [data-testid="stTable"] {
-        background-color: var(--color-bg-surface) !important; 
+        background-color: rgba(255, 255, 255, 0.75) !important; 
+        backdrop-filter: blur(8px) !important;
         border-radius: var(--radius-lg);
         padding: 0.3rem;
-        border: 1px solid var(--color-border);
+        border: 1px solid rgba(226, 234, 241, 0.7) !important;
         box-shadow: var(--shadow-md);
         margin-top: 0px;
         direction: rtl !important;
         text-align: right !important;
         transition: var(--transition);
-        max-height: 52vh !important; /* Slightly reduced to account for 4th row */
+        max-height: 52vh !important;
         overflow-y: auto !important;
     }
     
@@ -282,7 +356,6 @@ st.markdown(
         box-shadow: var(--shadow-hover);
     }
     
-    /* Force table headings and cells to align right */
     [data-testid="stDataFrame"] th, [data-testid="stDataFrame"] td, 
     [data-testid="stDataEditor"] th, [data-testid="stDataEditor"] td,
     [data-testid="stDataFrame"] *, [data-testid="stDataEditor"] * {
@@ -290,39 +363,42 @@ st.markdown(
         font-family: 'Assistant', sans-serif !important;
     }
 
-    /* Sidebar Stats - Clean Corporate Cards */
+    /* Sidebar Stats - Floating accented cards */
     .sidebar-stats {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 10px;
         margin-bottom: 1rem;
     }
     .sidebar-stat-card {
-        background: var(--color-bg-surface);
-        border: 1px solid var(--color-border);
-        box-shadow: var(--shadow-sm);
-        border-radius: var(--radius-md);
+        background: rgba(255, 255, 255, 0.75) !important;
+        backdrop-filter: blur(8px) !important;
+        border: 1px solid rgba(157, 188, 227, 0.25) !important;
+        border-right: 5px solid var(--color-primary) !important; /* Right border accent for RTL */
+        border-radius: var(--radius-md) !important;
         padding: 0.6rem 1rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
         direction: rtl;
-        transition: var(--transition);
+        box-shadow: 0 4px 15px 0 rgba(115, 130, 140, 0.03) !important;
+        transition: var(--transition) !important;
     }
     .sidebar-stat-card:hover {
-        border-color: var(--color-primary);
-        box-shadow: var(--shadow-hover);
-        transform: translateY(-2px);
+        border-right-color: var(--color-primary-hover) !important;
+        box-shadow: 0 10px 20px 0 rgba(157, 188, 227, 0.18) !important;
+        transform: translateY(-3px) !important;
     }
     .sidebar-stat-card .num {
-        font-size: 1.15rem;
+        font-family: 'Outfit', 'Assistant', sans-serif !important;
+        font-size: 1.25rem !important;
         font-weight: 800;
-        color: var(--color-primary);
+        color: var(--color-primary-hover) !important;
     }
     .sidebar-stat-card .label {
-        font-size: 0.8rem;
+        font-size: 0.82rem !important;
         font-weight: 600;
-        color: var(--color-text-muted);
+        color: var(--color-text-muted) !important;
     }
 
     /* Mobile Responsive Optimizations */
@@ -334,7 +410,6 @@ st.markdown(
             padding-bottom: 0.5rem !important;
         }
         
-        /* Force Mobile 2x2 Grid Layout */
         div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) {
             display: grid !important;
             grid-template-columns: repeat(2, 140px) !important;
@@ -352,7 +427,6 @@ st.markdown(
             padding: 0 !important;
         }
 
-        /* Responsive buttons for the grid */
         div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) [data-testid="stButton"] button {
             width: 100% !important;
             height: 40px !important;
@@ -360,25 +434,22 @@ st.markdown(
             min-width: 0 !important;
         }
         
-        /* Mobile styling for the 3rd row elements (Download & Checkbox) */
         div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stDownloadButton"]) {
-            justify-self: end !important; /* Push square button toward the center */
+            justify-self: end !important;
         }
         
         div[data-testid="stVerticalBlock"]:has(> div.element-container #action-buttons-anchor) > div.element-container:has([data-testid="stCheckbox"]) {
-            justify-self: start !important; /* Push checkbox toward the center */
+            justify-self: start !important;
             margin-top: 4px;
         }
 
         div.st-emotion-cache-1wmy9hl { width: 100% !important; gap: 0 !important; }
         
-        /* Height Reduction: Minimize margins to bring table above the fold */
         .main-header { 
             margin-bottom: 0.2rem !important; 
         }
     }
     
-    /* Toggle Switch Size Reduction */
     .stCheckbox label {
         font-size: 0.85rem !important;
         font-weight: 500 !important;
@@ -386,18 +457,15 @@ st.markdown(
         padding-right: 8px;
     }
     
-    /* Removes the padding from stColumns to tightly hug the layout */
     [data-testid="column"] {
         padding: 0 0.2rem !important;
     }
     
-    /* Tightly wrap elements vertically */
     .element-container { margin-bottom: 0 !important; }
     
-    /* Small wrapper alignment for minimalist right alignment of toggle */
     .table-toggle-wrapper {
         display: flex;
-        justify-content: flex-end; /* RTL: right */
+        justify-content: flex-end;
         padding-top: 0px;
         padding-bottom: 0px;
     }
@@ -564,12 +632,22 @@ def draw_record_dialog():
                 width: 100%; height: 100%;
                 border-radius: 50%; display: block; opacity: 0.25;
             }}
+            #vwrap-{spin_key} .v-shine {{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                border-radius: 50%;
+                background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 20%, rgba(0,0,0,0.1) 60%, rgba(255,255,255,0.12) 80%, rgba(255,255,255,0) 100%);
+                pointer-events: none;
+                z-index: 2;
+                opacity: 0.25;
+            }}
             #vwrap-{spin_key} .v-top {{
                 position: absolute; top: 9%; left: 0; right: 0;
                 text-align: center;
                 font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
                 text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
                 padding: 0 12%; line-height: 1.3;
+                z-index: 3;
             }}
             #vwrap-{spin_key} .v-bottom {{
                 position: absolute; bottom: 9%; left: 0; right: 0;
@@ -577,10 +655,12 @@ def draw_record_dialog():
                 font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
                 text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
                 padding: 0 12%; line-height: 1.3;
+                z-index: 3;
             }}
             </style>
             <div id="vwrap-{spin_key}">
                 <img class="v-img" src="{vinyl_src}" alt="vinyl" />
+                <div class="v-shine"></div>
                 <div class="v-top">{name}</div>
                 <div class="v-bottom">{artist}</div>
             </div>
@@ -617,6 +697,15 @@ def draw_record_dialog():
                     vinylDecel-{spin_key} 4s  cubic-bezier(0.05, 0, 0.3, 1) forwards,
                     vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
             }}
+            #vwrap-{spin_key} .v-shine {{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                border-radius: 50%;
+                background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 20%, rgba(0,0,0,0.1) 60%, rgba(255,255,255,0.12) 80%, rgba(255,255,255,0) 100%);
+                pointer-events: none;
+                z-index: 2;
+                animation: vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
+            }}
             #vwrap-{spin_key} .v-top {{
                 position: absolute; top: 9%; left: 0; right: 0;
                 text-align: center; opacity: 0;
@@ -625,6 +714,7 @@ def draw_record_dialog():
                 font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
                 text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
                 padding: 0 12%; line-height: 1.3;
+                z-index: 3;
             }}
             #vwrap-{spin_key} .v-bottom {{
                 position: absolute; bottom: 9%; left: 0; right: 0;
@@ -634,10 +724,12 @@ def draw_record_dialog():
                 font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
                 text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
                 padding: 0 12%; line-height: 1.3;
+                z-index: 3;
             }}
             </style>
             <div id="vwrap-{spin_key}">
                 <img class="v-img" src="{vinyl_src}" alt="vinyl" />
+                <div class="v-shine"></div>
                 <div class="v-top">{name}</div>
                 <div class="v-bottom">{artist}</div>
             </div>
