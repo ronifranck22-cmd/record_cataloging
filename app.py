@@ -12,9 +12,6 @@ import base64
 
 from db_client import get_db
 import record_store
-from drive_backup import build_drive_service
-from image_sync import sync_single_record
-from auto_backup import rotate_and_backup
 import threading
 from google.api_core.exceptions import ResourceExhausted
 
@@ -32,7 +29,6 @@ def get_base64_of_bin_file(bin_file):
 
 LOGO_BASE64 = get_base64_of_bin_file('logo.png')
 BG_BASE64 = get_base64_of_bin_file('background_pattern.png')
-VINYL_BASE64 = get_base64_of_bin_file('spinning_vinyl_asset.png')
 
 # Header Logos (Responsive)
 LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>' if LOGO_BASE64 else ""
@@ -463,12 +459,9 @@ db = init_db()
 # State helpers & Fetch
 # ---------------------------------------------------------------------------
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=86400)
 def _fetch_all_records():
-    """Cached Firestore read — at most one round-trip per hour per server instance.
-
-    Limited to 500 records per cold start to protect the daily free-tier quota
-    (50,000 reads / 500 per fetch = 100 cold starts before exhaustion).
+    """Cached Firestore read — at most one round-trip per 24 hours per server instance.
 
     On ResourceExhausted (429) the cache stores an empty DataFrame so the UI
     stays alive with a warning rather than hard-crashing the app.
@@ -483,7 +476,9 @@ def _fetch_all_records():
 
 def load_data():
     """Populate session state from the cache (or Firestore on first/post-mutation run)."""
+    t0 = time.time()
     df = _fetch_all_records()
+    print(f"load_data: Loaded {len(df)} records in {time.time()-t0:.4f} seconds", flush=True)
     st.session_state["df"] = df
     st.session_state["_quota_exhausted"] = df.empty and "id" in df.columns
     st.session_state["current_page"] = 0
@@ -496,7 +491,6 @@ def reset_all_filters():
     st.session_state["search_input"] = ""
     st.session_state["artist_select"] = []
     st.session_state["letter_select"] = []
-    st.cache_data.clear()  # Clear cache so fresh data is fetched from Firestore
     load_data()
 
 def set_admin():
@@ -547,7 +541,8 @@ def draw_record_dialog():
     artist = raw_artist if str(raw_artist).lower() not in ("", "none") else "לא ידוע"
     name   = raw_name   if str(raw_name).lower()   not in ("", "none") else "לא ידוע"
     spin_key = st.session_state["spin_key"]
-    vinyl_src = f"data:image/png;base64,{VINYL_BASE64}" if VINYL_BASE64 else ""
+    vinyl_base64 = get_base64_of_bin_file('spinning_vinyl_asset.png')
+    vinyl_src = f"data:image/png;base64,{vinyl_base64}" if vinyl_base64 else ""
 
     # If the animation has already completed, render final state instantly
     # (avoids text disappearing on Streamlit's periodic reruns)
@@ -697,7 +692,7 @@ with st.sidebar:
 
     st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> סינון</h3>', unsafe_allow_html=True)
 
-    st.text_input("", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input")
+    st.text_input("חיפוש חופשי", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input", label_visibility="collapsed")
 
     artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
     st.multiselect("סנן לפי אמן", artists, key="artist_select")
@@ -898,6 +893,8 @@ def add_record_dialog():
                 if new_image_url.strip():
                     with st.spinner("מוריד תמונת עטיפה..."):
                         try:
+                            from drive_backup import build_drive_service
+                            from image_sync import sync_single_record
                             drive_svc = build_drive_service(dict(st.secrets["firebase"]))
                             covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
                             if covers_folder_id:
@@ -909,6 +906,7 @@ def add_record_dialog():
                 # --- Auto-backup to Google Drive (background task) ---
                 if st.secrets.get("enable_backup", True):
                     try:
+                        from auto_backup import rotate_and_backup
                         firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                         threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
                     except Exception as e:
@@ -934,6 +932,7 @@ def delete_record_dialog():
         # --- Auto-backup to Google Drive (background task) ---
         if st.secrets.get("enable_backup", True):
             try:
+                from auto_backup import rotate_and_backup
                 firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                 threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
             except Exception as e:
@@ -1004,6 +1003,8 @@ def update_record_dialog():
                 if new_raw_url and new_raw_url != old_raw_url:
                     with st.spinner("מוריד תמונת עטיפה..."):
                         try:
+                            from drive_backup import build_drive_service
+                            from image_sync import sync_single_record
                             drive_svc = build_drive_service(dict(st.secrets["firebase"]))
                             covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
                             if covers_folder_id:
@@ -1015,6 +1016,7 @@ def update_record_dialog():
                 # --- Auto-backup to Google Drive (background task) ---
                 if st.secrets.get("enable_backup", True):
                     try:
+                        from auto_backup import rotate_and_backup
                         firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                         threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
                     except Exception as e:
@@ -1181,6 +1183,7 @@ else:
                 # --- Auto-backup to Google Drive (background task) ---
                 if st.secrets.get("enable_backup", True):
                     try:
+                        from auto_backup import rotate_and_backup
                         firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
                         threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
                     except Exception as e:
