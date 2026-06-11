@@ -1204,9 +1204,6 @@ with st.container():
     st.markdown('<div id="table-controls-anchor"></div>', unsafe_allow_html=True)
     st.markdown(f'<p style="font-size:0.8rem; color: #64748b;font-weight:600; margin:0;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p>', unsafe_allow_html=True)
     show_box = st.checkbox("הצג עמודת קופסא", value=False)
-    edit_mode = False
-    if st.session_state.get("is_admin", False):
-        edit_mode = st.checkbox("⚙️ מצב עריכה", value=False)
 
 # Display Sub-Count neatly above table
 # Redundant line removed to avoid duplication with Row 4
@@ -1251,14 +1248,15 @@ else:
         "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
     }
 
-    if st.session_state.get("is_admin", False) and edit_mode:
-        # Admin: editable table with save + row-click detail popup
+    if st.session_state.get("is_admin", False):
+        # Admin: editable table with save + row-click detail popup workaround
         editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
         
         # Data Isolation: Create a clean copy of the paginated dataframe for editing
         admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
         df_for_editing = page_df[admin_cols].copy()
         df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+        df_for_editing.insert(0, "צפה", False)
         
         # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
         df_for_editing = df_for_editing.reset_index(drop=True)
@@ -1272,6 +1270,7 @@ else:
             
         # Column Configuration: Explicitly define types to prevent guessing and serializer issues
         admin_config = {
+            "צפה": st.column_config.CheckboxColumn("צפה", default=False, width="small", help="הצג פרטים ועטיפה"),
             "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
             "notes": st.column_config.TextColumn("הערות"),
             "name": st.column_config.TextColumn("שם התקליט"),
@@ -1292,6 +1291,18 @@ else:
             key=editor_key,
         )
 
+        # Check if any row's "צפה" checkbox was checked to trigger the details dialog workaround
+        _editor_state = st.session_state.get(editor_key, {})
+        _edited_rows = _editor_state.get("edited_rows", {})
+        if _edited_rows:
+            for row_idx_str, row_changes in list(_edited_rows.items()):
+                if row_changes.get("צפה") is True:
+                    row_idx = int(row_idx_str)
+                    _rec = page_df.iloc[row_idx].to_dict()
+                    st.session_state["detail_record"] = _rec
+                    st.session_state["selection_counter"] += 1
+                    st.rerun()
+
         if not df_for_editing.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
                 if not st.session_state.get("is_admin", False):
@@ -1306,6 +1317,8 @@ else:
                         changes = edited_row.to_dict()
                         if "עטיפה" in changes:
                             del changes["עטיפה"]
+                        if "צפה" in changes:
+                            del changes["צפה"]
                         if "box" in changes:
                             changes["box"] = int(changes["box"])
                         record_store.update(db, doc_id, changes)
