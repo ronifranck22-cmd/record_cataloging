@@ -861,6 +861,9 @@ def show_record_detail(record: dict) -> None:
 # ---------------------------------------------------------------------------
 @st.dialog("הוספת תקליט חדש")
 def add_record_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
     with st.form("add_form", clear_on_submit=True):
         st.markdown("<p style='font-size: 0.85rem; color: #666;'>השדות המסומנים ב-* הינם חובה.</p>", unsafe_allow_html=True)
         new_artist = st.text_input("שם אומן *")
@@ -917,6 +920,9 @@ def add_record_dialog():
 
 @st.dialog("מחיקת תקליט")
 def delete_record_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
     if filtered_df.empty:
          st.warning("אין תקליטים לחיתוך זה.")
          return
@@ -943,6 +949,9 @@ def delete_record_dialog():
 
 @st.dialog("עדכון תקליט")
 def update_record_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
     if df.empty:
         st.warning("אין נתונים במסד.")
         return
@@ -1027,6 +1036,9 @@ def update_record_dialog():
 
 @st.dialog("העלאת קובץ")
 def upload_csv_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
     st.info("כלי העלאת CSV כרגע לא פעיל בממשק.")
 
 # ---------------------------------------------------------------------------
@@ -1168,6 +1180,9 @@ else:
 
         if not df_for_editing.equals(edited_df):
             if st.button("שמור שינויים", type="primary"):
+                if not st.session_state.get("is_admin", False):
+                    st.error("פעולה זו מורשית למנהלים בלבד.")
+                    st.rerun()
                 for idx in edited_df.index:
                     original_row = df_for_editing.loc[idx]
                     edited_row = edited_df.loc[idx]
