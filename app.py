@@ -1252,9 +1252,10 @@ else:
         # Admin: editable table with save + row-click detail popup
         editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
         
-        # Data Isolation: Create a clean copy of the paginated dataframe for editing (excluding the 'View' column)
+        # Data Isolation: Create a clean copy of the paginated dataframe for editing
         admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
         df_for_editing = page_df[admin_cols].copy()
+        df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
         
         # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
         df_for_editing = df_for_editing.reset_index(drop=True)
@@ -1268,6 +1269,7 @@ else:
             
         # Column Configuration: Explicitly define types to prevent guessing and serializer issues
         admin_config = {
+            "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
             "notes": st.column_config.TextColumn("הערות"),
             "name": st.column_config.TextColumn("שם התקליט"),
             "artist": st.column_config.TextColumn("אמן"),
@@ -1283,6 +1285,7 @@ else:
             hide_index=True,
             num_rows="fixed",
             height=320,
+            disabled=["עטיפה"],
             key=editor_key,
         )
 
@@ -1298,6 +1301,8 @@ else:
                         # Map contiguous index back to Firestore document using page_df.iloc
                         doc_id = page_df.iloc[idx]["id"]
                         changes = edited_row.to_dict()
+                        if "עטיפה" in changes:
+                            del changes["עטיפה"]
                         if "box" in changes:
                             changes["box"] = int(changes["box"])
                         record_store.update(db, doc_id, changes)
