@@ -45,18 +45,29 @@ st.set_page_config(
 )
 
 # Dense AirBnB UX, Centered Buttons, Clean Header
-st.markdown(
-    textwrap.dedent("""
-    <link rel="manifest" href="/static/manifest.json">
+import streamlit.components.v1 as components
+components.html(
+    """
     <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js')
-          .then(reg => console.log('Service Worker registered', reg))
-          .catch(err => console.error('Service Worker registration failed', err));
-      });
+    if (parent && parent.document && !parent.document.querySelector('link[rel="manifest"]')) {
+        const link = parent.document.createElement('link');
+        link.rel = 'manifest';
+        link.href = '/static/manifest.json';
+        parent.document.head.appendChild(link);
+    }
+    if (parent && parent.navigator && parent.navigator.serviceWorker) {
+        parent.navigator.serviceWorker.register('/static/sw.js')
+            .then(reg => console.log('PWA Service Worker registered successfully', reg))
+            .catch(err => console.error('PWA Service Worker registration failed', err));
     }
     </script>
+    """,
+    height=0,
+    width=0,
+)
+
+st.markdown(
+    textwrap.dedent("""
     <style>
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
