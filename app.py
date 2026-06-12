@@ -46,6 +46,16 @@ st.set_page_config(
 # Dense AirBnB UX, Centered Buttons, Clean Header
 st.markdown(
     """
+    <link rel="manifest" href="/static/manifest.json">
+    <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js')
+          .then(reg => console.log('Service Worker registered', reg))
+          .catch(err => console.error('Service Worker registration failed', err));
+      });
+    }
+    </script>
     <style>
     /* Google Fonts */
     @import url('https://fonts.googleapis.com/css2?family=Assistant:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap');
@@ -907,22 +917,11 @@ def show_record_detail(record: dict) -> None:
         if id_letter:
             location += f" &nbsp;•&nbsp; אות {id_letter}"
 
-        # Extract Year from notes if not directly in the record
-        year = record.get("year")
-        if not year and notes:
-            # Try to find a 4-digit year like 1987 or 2021 in the notes
-            match = re.search(r'\b(19\d{2}|20\d{2})\b', notes)
-            if match:
-                year = match.group(1)
-        if not year:
-            year = "לא ידוע"
-
         st.markdown(
             f"""
             <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
                 <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
                 <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
-                <p style="margin:0.2rem 0 0; color:#8292A1; font-size:0.9rem;"><strong>שנה:</strong> {year}</p>
                 <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
                 {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
             </div>

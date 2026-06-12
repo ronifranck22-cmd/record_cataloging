@@ -260,73 +260,78 @@ def scrape_stereo_ve_mono(artist: str, album: str) -> str | None:
 # הרצה ראשית
 # ---------------------------------------------------------------------------
 
-import os
+def main():
+    import os
 
-df_full = pd.read_csv(INPUT_FILE, dtype=str)
-df = df_full.head(ROW_LIMIT).copy() if ROW_LIMIT else df_full.copy()
-total = len(df)
+    df_full = pd.read_csv(INPUT_FILE, dtype=str)
+    df = df_full.head(ROW_LIMIT).copy() if ROW_LIMIT else df_full.copy()
+    total = len(df)
 
-if 'image_url'    not in df.columns: df['image_url']    = ""
-if 'market_price' not in df.columns: df['market_price'] = ""
+    if 'image_url'    not in df.columns: df['image_url']    = ""
+    if 'market_price' not in df.columns: df['market_price'] = ""
 
-# ── Resuming logic ──────────────────────────────────────────────────────────
-if os.path.exists(OUTPUT_FILE):
-    try:
-        df_existing = pd.read_csv(OUTPUT_FILE, dtype=str)
-        # Ensure columns exist in existing df
-        for col in ['image_url', 'market_price']:
-            if col not in df_existing.columns:
-                df_existing[col] = ""
-        # Check if length matches the current target
-        if len(df_existing) == len(df):
-            df = df_existing
-            print("🔄 Found existing output file. Resuming progress...")
-        else:
-            print(f"ℹ Existing output file has length {len(df_existing)}, expected {len(df)}. Starting fresh.")
-    except Exception as e:
-        print(f"⚠ Could not load existing progress: {e}. Starting fresh.")
+    # ── Resuming logic ──────────────────────────────────────────────────────────
+    if os.path.exists(OUTPUT_FILE):
+        try:
+            df_existing = pd.read_csv(OUTPUT_FILE, dtype=str)
+            # Ensure columns exist in existing df
+            for col in ['image_url', 'market_price']:
+                if col not in df_existing.columns:
+                    df_existing[col] = ""
+            # Check if length matches the current target
+            if len(df_existing) == len(df):
+                df = df_existing
+                print("🔄 Found existing output file. Resuming progress...")
+            else:
+                print(f"ℹ Existing output file has length {len(df_existing)}, expected {len(df)}. Starting fresh.")
+        except Exception as e:
+            print(f"⚠ Could not load existing progress: {e}. Starting fresh.")
 
-print(f"🚀 מתחיל הרצה על {total} רשומות מתוך '{INPUT_FILE}'")
-print(f"   פלט: {OUTPUT_FILE}\n")
+    print(f"🚀 מתחיל הרצה על {total} רשומות מתוך '{INPUT_FILE}'")
+    print(f"   פלט: {OUTPUT_FILE}\n")
 
-for idx, row in df.iterrows():
-    row_num = idx + 1
-    raw_artist = clean(row.get('artist'))
-    album      = clean(row.get('name'))
+    for idx, row in df.iterrows():
+        row_num = idx + 1
+        raw_artist = clean(row.get('artist'))
+        album      = clean(row.get('name'))
 
-    # Skip if already processed (has non-empty image_url)
-    img_val = clean(row.get('image_url'))
-    if img_val:
-        continue
+        # Skip if already processed (has non-empty image_url)
+        img_val = clean(row.get('image_url'))
+        if img_val:
+            continue
 
-    # תיקון שגיאות כתיב
-    artist = apply_typo_fix(raw_artist)
-    if artist != raw_artist:
-        print(f"  [תיקון כתיב] '{raw_artist}' → '{artist}'")
+        # תיקון שגיאות כתיב
+        artist = apply_typo_fix(raw_artist)
+        if artist != raw_artist:
+            print(f"  [תיקון כתיב] '{raw_artist}' → '{artist}'")
 
-    print(f"\nשורה {row_num}/{total}: {artist} — {album}")
+        print(f"\nשורה {row_num}/{total}: {artist} — {album}")
 
-    # ── Three-Strikes בדיסקוגס ─────────────────────────────────────────
-    img, price = get_discogs_data(artist, album)
+        # ── Three-Strikes בדיסקוגס ─────────────────────────────────────────
+        img, price = get_discogs_data(artist, album)
 
-    # ── Fallback: Stereo-Ve-Mono ────────────────────────────────────────
-    if not img:
-        img = scrape_stereo_ve_mono(raw_artist, album)  # שם עברי מקורי
+        # ── Fallback: Stereo-Ve-Mono ────────────────────────────────────────
+        if not img:
+            img = scrape_stereo_ve_mono(raw_artist, album)  # שם עברי מקורי
 
-    # ── שמירה ──────────────────────────────────────────────────────────
-    df.at[idx, 'image_url']    = img   if img   else "Not Found"
-    df.at[idx, 'market_price'] = price if price else "0"
+        # ── שמירה ──────────────────────────────────────────────────────────
+        df.at[idx, 'image_url']    = img   if img   else "Not Found"
+        df.at[idx, 'market_price'] = price if price else "0"
 
-    img_icon   = "✅" if img   else "❌"
-    price_icon = "✅" if price else "❌"
-    print(f"    תמונה {img_icon}  |  מחיר {price_icon} {price or '0'}")
+        img_icon   = "✅" if img   else "❌"
+        price_icon = "✅" if price else "❌"
+        print(f"    תמונה {img_icon}  |  מחיר {price_icon} {price or '0'}")
 
-    # שמירה אחרי כל שורה — כדי שלא תאבדי נתונים אם הסקריפט נקטע
-    df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
+        # שמירה אחרי כל שורה — כדי שלא תאבדי נתונים אם הסקריפט נקטע
+        df.to_csv(OUTPUT_FILE, index=False, encoding='utf-8-sig')
 
-    time.sleep(DELAY)
+        time.sleep(DELAY)
 
-# ── סיכום ──────────────────────────────────────────────────────────────────
-found_img   = (df['image_url']    != "Not Found").sum()
-print(f"\n✨ סיימתי! {OUTPUT_FILE} מוכן.")
-print(f"   תמונות נמצאו : {found_img}/{total}")
+    # ── סיכום ──────────────────────────────────────────────────────────────────
+    found_img   = (df['image_url']    != "Not Found").sum()
+    print(f"\n✨ סיימתי! {OUTPUT_FILE} מוכן.")
+    print(f"   תמונות נמצאו : {found_img}/{total}")
+
+
+if __name__ == "__main__":
+    main()
