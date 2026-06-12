@@ -9,6 +9,7 @@ import streamlit as st
 import pandas as pd
 import time
 import base64
+import textwrap
 
 from db_client import get_db
 import record_store
@@ -45,7 +46,7 @@ st.set_page_config(
 
 # Dense AirBnB UX, Centered Buttons, Clean Header
 st.markdown(
-    """
+    textwrap.dedent("""
     <link rel="manifest" href="/static/manifest.json">
     <script>
     if ('serviceWorker' in navigator) {
@@ -475,7 +476,7 @@ st.markdown(
         padding-bottom: 0px;
     }
     </style>
-    """,
+    """),
     unsafe_allow_html=True,
 )
 
