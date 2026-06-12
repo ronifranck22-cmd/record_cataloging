@@ -341,15 +341,10 @@ st.markdown(
         background-color: rgba(255, 255, 255, 0.75) !important; 
         backdrop-filter: blur(8px) !important;
         border-radius: var(--radius-lg);
-        padding: 0.3rem;
         border: 1px solid rgba(226, 234, 241, 0.7) !important;
         box-shadow: var(--shadow-md);
         margin-top: 0px;
-        direction: rtl !important;
-        text-align: right !important;
         transition: var(--transition);
-        max-height: 52vh !important;
-        overflow-y: auto !important;
     }
     
     [data-testid="stDataFrame"]:hover, [data-testid="stDataEditor"]:hover {
