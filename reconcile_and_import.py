@@ -19,6 +19,7 @@ import os
 import sys
 import argparse
 import json
+import re
 import pandas as pd
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -36,8 +37,55 @@ def clean_text(text) -> str:
     return "".join(str(text).strip().lower().split())
 
 
+def parse_layout_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Converts a layout-based grid dataframe (where columns are arranged in blocks of 4)
+    into a flat dataframe of records with columns: box, id_letter, artist, name, notes.
+    """
+    records = []
+    box_pattern = re.compile(r'(קוביה|קובייה)\s*(\d+)')
+    
+    # We iterate in steps of 4 columns
+    for k in range(0, df.shape[1], 4):
+        # Determine the box number for this block of columns
+        box_num = None
+        for i in range(4):
+            col_idx = k + i
+            if col_idx < df.shape[1]:
+                col_name = str(df.columns[col_idx])
+                match = box_pattern.search(col_name)
+                if match:
+                    box_num = int(match.group(2))
+                    break
+        if box_num is None:
+            box_num = k // 4 + 1
+            
+        for _, row in df.iterrows():
+            vals = []
+            for i in range(4):
+                col_idx = k + i
+                if col_idx < df.shape[1]:
+                    val = row.iloc[col_idx]
+                    vals.append("" if pd.isna(val) else str(val).strip())
+                else:
+                    vals.append("")
+            
+            id_letter, artist, name, notes = vals
+            if not artist and not name:
+                continue
+                
+            records.append({
+                "box": box_num,
+                "id_letter": id_letter,
+                "artist": artist,
+                "name": name,
+                "notes": notes
+            })
+            
+    return pd.DataFrame(records)
+
+
 def read_data_file(filepath: str) -> pd.DataFrame:
-    """Reads either an Excel (.xlsx) or CSV (.csv) file cleanly into a DataFrame."""
+    """Reads either an Excel (.xlsx) or CSV (.csv) file cleanly into a DataFrame of records."""
     path = os.path.abspath(filepath)
     if not os.path.exists(path):
         print(f"Error: File not found at '{path}'")
@@ -46,12 +94,34 @@ def read_data_file(filepath: str) -> pd.DataFrame:
     print(f"Reading '{filepath}'...")
     try:
         if filepath.lower().endswith(".xlsx"):
-            return pd.read_excel(path, dtype=str)
+            df = pd.read_excel(path, dtype=str)
         elif filepath.lower().endswith(".csv"):
-            return pd.read_csv(path, dtype=str)
+            df = pd.read_csv(path, dtype=str)
         else:
             print(f"Error: Unsupported file extension for '{filepath}'. Must be .xlsx or .csv")
             sys.exit(1)
+            
+        # Determine if it's flat format or layout format
+        cols = [c.lower() for c in df.columns]
+        if "artist" in cols or "name" in cols or "box" in cols:
+            # Flat format: rename columns if needed to match standard
+            for c in ["box", "id_letter", "artist", "name", "notes"]:
+                if c not in df.columns:
+                    # check case insensitive
+                    found = False
+                    for real_c in df.columns:
+                        if real_c.lower() == c:
+                            df = df.rename(columns={real_c: c})
+                            found = True
+                            break
+                    if not found:
+                        df[c] = ""
+            return df
+        else:
+            # Layout format: parse it
+            print("Detected grid layout format. Converting to flat records...")
+            return parse_layout_dataframe(df)
+            
     except Exception as e:
         print(f"Error reading file: {e}")
         sys.exit(1)
