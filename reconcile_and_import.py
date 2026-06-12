@@ -59,7 +59,19 @@ def parse_layout_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         if box_num is None:
             box_num = k // 4 + 1
             
-        for _, row in df.iterrows():
+        for idx, row in df.iterrows():
+            # Skip the last row of the dataframe if it represents a summation row.
+            if idx == len(df) - 1:
+                numeric_count = 0
+                total_checked = 0
+                for val in row:
+                    if pd.notna(val) and str(val).strip():
+                        total_checked += 1
+                        if str(val).strip().isdigit():
+                            numeric_count += 1
+                if total_checked > 0 and numeric_count / total_checked > 0.5:
+                    continue
+
             vals = []
             for i in range(4):
                 col_idx = k + i
