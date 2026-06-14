@@ -90,6 +90,25 @@ st.markdown(
         --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    /* Hide the custom localStorage component iframe container completely */
+    div.element-container:has(iframe[title*="local_storage"]),
+    div[data-testid="element-container"]:has(iframe[title*="local_storage"]) {
+        height: 0px !important;
+        min-height: 0px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        visibility: hidden !important;
+    }
+    iframe[title*="local_storage"] {
+        height: 0px !important;
+        width: 0px !important;
+        border: none !important;
+        visibility: hidden !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
     /* Base Styling */
     body {
         font-family: 'Assistant', sans-serif !important;
@@ -535,40 +554,55 @@ if "selection_counter" not in st.session_state:
 import os
 import hashlib
 
+if "local_storage_action" not in st.session_state:
+    st.session_state["local_storage_action"] = "get"
+if "local_storage_val" not in st.session_state:
+    st.session_state["local_storage_val"] = None
+
 component_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "localStorage_component")
 _local_storage = components.declare_component("local_storage", path=component_path)
 
-def get_local_storage(key):
-    try:
-        res = _local_storage(action="get", key=key, default=None)
-        if res and isinstance(res, dict) and res.get("status") == "success" and res.get("key") == key:
-            return res.get("value")
-    except Exception as e:
-        print(f"LocalStorage Component Error: {e}", flush=True)
-    return None
+# Unconditionally render the component to keep it in the DOM and process actions
+res = _local_storage(
+    action=st.session_state["local_storage_action"],
+    storage_key="admin_token",
+    value=st.session_state["local_storage_val"],
+    key="ls_iframe"
+)
 
+# Wrapper helpers that update state so components can trigger them from anywhere (callbacks/buttons)
 def set_local_storage(key, value):
-    try:
-        _local_storage(action="set", key=key, value=value)
-    except Exception as e:
-        print(f"LocalStorage Component Error: {e}", flush=True)
+    st.session_state["local_storage_action"] = "set"
+    st.session_state["local_storage_val"] = value
 
 def clear_local_storage(key):
-    try:
-        _local_storage(action="clear", key=key)
-    except Exception as e:
-        print(f"LocalStorage Component Error: {e}", flush=True)
+    st.session_state["local_storage_action"] = "clear"
+    st.session_state["local_storage_val"] = None
 
-# Auto-login check on page reload
-if not st.session_state.get("is_admin", False):
-    stored_token = get_local_storage("admin_token")
-    if stored_token:
-        correct_password = st.secrets.get("app_password", "")
-        if correct_password:
-            correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
-            if stored_token == correct_hash:
-                st.session_state["is_admin"] = True
-                st.rerun()
+# Process component response
+if res and isinstance(res, dict) and res.get("status") == "success":
+    res_action = res.get("action")
+    res_val = res.get("value")
+    
+    if res_action == "get":
+        if res_val:
+            correct_password = st.secrets.get("app_password", "")
+            if correct_password:
+                correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
+                if res_val == correct_hash:
+                    if not st.session_state.get("is_admin", False):
+                        st.session_state["is_admin"] = True
+                        st.rerun()
+    elif res_action == "set":
+        # Reset queue back to 'get' state
+        st.session_state["local_storage_action"] = "get"
+        st.session_state["local_storage_val"] = None
+        st.rerun()
+    elif res_action == "clear":
+        # Reset queue back to 'get' state
+        st.session_state["local_storage_action"] = "get"
+        st.session_state["local_storage_val"] = None
+        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)

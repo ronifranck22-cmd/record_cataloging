@@ -23,19 +23,19 @@
                 
                 const args = event.data.args;
                 const action = args.action;
-                const key = args.key;
+                const storage_key = args.storage_key;
                 const val = args.value;
 
                 try {
                     if (action === "set") {
-                        localStorage.setItem(key, val);
-                        sendToStreamlit({status: "success", action: "set", key: key, value: val});
+                        localStorage.setItem(storage_key, val);
+                        sendToStreamlit({status: "success", action: "set", storage_key: storage_key, value: val});
                     } else if (action === "get") {
-                        const stored = localStorage.getItem(key);
-                        sendToStreamlit({status: "success", action: "get", key: key, value: stored});
+                        const stored = localStorage.getItem(storage_key);
+                        sendToStreamlit({status: "success", action: "get", storage_key: storage_key, value: stored});
                     } else if (action === "clear") {
-                        localStorage.removeItem(key);
-                        sendToStreamlit({status: "success", action: "clear", key: key, value: null});
+                        localStorage.removeItem(storage_key);
+                        sendToStreamlit({status: "success", action: "clear", storage_key: storage_key, value: null});
                     }
                 } catch (e) {
                     sendToStreamlit({status: "error", error: e.message});
