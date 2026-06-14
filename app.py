@@ -895,6 +895,35 @@ def draw_record_dialog():
             st.session_state["dialog_open"] = False
             st.rerun()
 
+# ---------------------------------------------------------------------------
+# Apply Global Filters to working dataset
+# ---------------------------------------------------------------------------
+
+filtered_df = df.copy()
+
+sq = st.session_state["search_input"]
+if sq:
+    q = sq.lower()
+    mask = filtered_df.apply(
+        lambda row: q in str(row.get("artist", "")).lower() or 
+                    q in str(row.get("name", "")).lower() or 
+                    q in str(row.get("notes", "")).lower(), 
+        axis=1
+    )
+    filtered_df = filtered_df[mask]
+
+if st.session_state["selected_artists"]:
+    filtered_df = filtered_df[filtered_df["artist"].isin(st.session_state["selected_artists"])]
+
+if st.session_state["selected_letters"]:
+    filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["selected_letters"])]
+
+total_filtered_records = len(filtered_df)
+rows_limit = st.session_state.get("rows_per_page", 50)
+MAX_PAGE = max(0, (total_filtered_records - 1) // rows_limit)
+if st.session_state["current_page"] > MAX_PAGE:
+    st.session_state["current_page"] = MAX_PAGE
+
 with st.sidebar:
     # ── Admin Login/Session Block ───────────────────────────────
     if not st.session_state["is_admin"]:
@@ -1028,34 +1057,7 @@ with st.sidebar:
             width=0,
         )
 
-# ---------------------------------------------------------------------------
-# Apply Global Filters to working dataset
-# ---------------------------------------------------------------------------
-
-filtered_df = df.copy()
-
-sq = st.session_state["search_input"]
-if sq:
-    q = sq.lower()
-    mask = filtered_df.apply(
-        lambda row: q in str(row.get("artist", "")).lower() or 
-                    q in str(row.get("name", "")).lower() or 
-                    q in str(row.get("notes", "")).lower(), 
-        axis=1
-    )
-    filtered_df = filtered_df[mask]
-
-if st.session_state["selected_artists"]:
-    filtered_df = filtered_df[filtered_df["artist"].isin(st.session_state["selected_artists"])]
-
-if st.session_state["selected_letters"]:
-    filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["selected_letters"])]
-
-total_filtered_records = len(filtered_df)
-rows_limit = st.session_state.get("rows_per_page", 50)
-MAX_PAGE = max(0, (total_filtered_records - 1) // rows_limit)
-if st.session_state["current_page"] > MAX_PAGE:
-    st.session_state["current_page"] = MAX_PAGE
+# Global filters applied above sidebar block
 
 
 # ---------------------------------------------------------------------------
