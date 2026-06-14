@@ -630,6 +630,7 @@ def clear_local_storage(key):
     st.session_state["local_storage_val"] = None
 
 # Process component response
+res_val = None
 if res and isinstance(res, dict) and res.get("status") == "success":
     res_action = res.get("action")
     res_val = res.get("value")
@@ -653,6 +654,20 @@ if res and isinstance(res, dict) and res.get("status") == "success":
         st.session_state["local_storage_action"] = "get"
         st.session_state["local_storage_val"] = None
         st.rerun()
+
+# Active sync check to write/clear token based on checkbox status when admin is logged in
+if st.session_state.get("is_admin"):
+    correct_password = st.secrets.get("app_password", "")
+    if correct_password:
+        correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
+        if st.session_state.get("remember_admin_session"):
+            if st.session_state.get("local_storage_action") != "set" and res_val != correct_hash:
+                set_local_storage("admin_token", correct_hash)
+                st.rerun()
+        else:
+            if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
+                clear_local_storage("admin_token")
+                st.rerun()
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -714,6 +729,7 @@ def on_letter_change():
 
 def set_admin():
     """Callback: validate admin password and set is_admin flag."""
+    st.write("DEBUG: set_admin called")
     entered = st.session_state.get("admin_input", "")
     correct = st.secrets.get("app_password", "")
     is_correct = (entered == correct) and bool(correct)
@@ -723,9 +739,11 @@ def set_admin():
         if st.session_state.get("remember_admin_session"):
             correct_hash = hashlib.sha256(correct.encode()).hexdigest()
             set_local_storage("admin_token", correct_hash)
+            st.rerun()
     else:
         # Clear token if login failed or password was cleared
         clear_local_storage("admin_token")
+        st.rerun()
 
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
