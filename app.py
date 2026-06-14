@@ -90,7 +90,7 @@ st.markdown(
         --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Hide the custom localStorage component and scripts iframe containers completely */
+    /* Hide the custom localStorage component and scripts iframe containers completely without halting them */
     div.element-container:has(iframe[title*="local_storage"]),
     div[data-testid="element-container"]:has(iframe[title*="local_storage"]),
     div.element-container:has(iframe[title*="st.html"]),
@@ -100,16 +100,20 @@ st.markdown(
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
-        visibility: hidden !important;
+        position: absolute !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
     }
     iframe[title*="local_storage"], iframe[title*="st.html"] {
         height: 0px !important;
         width: 0px !important;
         border: none !important;
-        visibility: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
-        display: none !important;
+        position: absolute !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        display: block !important;
     }
 
     /* Mobile Drawer/Overlay Sidebar Behavior */
