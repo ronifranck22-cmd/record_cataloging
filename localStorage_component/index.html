@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <script>
+        function sendToStreamlit(value) {
+            window.parent.postMessage({
+                type: "streamlit:setComponentValue",
+                value: value
+            }, "*");
+        }
+
+        function setHeight() {
+            window.parent.postMessage({
+                type: "streamlit:setFrameHeight",
+                height: 0
+            }, "*");
+        }
+
+        window.addEventListener("message", function(event) {
+            if (event.data.type === "streamlit:render") {
+                setHeight();
+                
+                const args = event.data.args;
+                const action = args.action;
+                const key = args.key;
+                const val = args.value;
+
+                try {
+                    if (action === "set") {
+                        localStorage.setItem(key, val);
+                        sendToStreamlit({status: "success", action: "set", key: key, value: val});
+                    } else if (action === "get") {
+                        const stored = localStorage.getItem(key);
+                        sendToStreamlit({status: "success", action: "get", key: key, value: stored});
+                    } else if (action === "clear") {
+                        localStorage.removeItem(key);
+                        sendToStreamlit({status: "success", action: "clear", key: key, value: null});
+                    }
+                } catch (e) {
+                    sendToStreamlit({status: "error", error: e.message});
+                }
+            }
+        });
+
+        // Periodically verify height to avoid sudden resizing layout shifts
+        setInterval(setHeight, 200);
+    </script>
+</head>
+<body style="margin: 0; padding: 0; background: transparent; height: 0px; overflow: hidden;">
+</body>
+</html>

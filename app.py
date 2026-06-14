@@ -531,6 +531,45 @@ if "detail_record" not in st.session_state:
 if "selection_counter" not in st.session_state:
     st.session_state["selection_counter"] = 0
 
+# --- Custom LocalStorage Component for 'Remember Session' ---
+import os
+import hashlib
+
+component_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "localStorage_component")
+_local_storage = components.declare_component("local_storage", path=component_path)
+
+def get_local_storage(key):
+    try:
+        res = _local_storage(action="get", key=key, default=None)
+        if res and isinstance(res, dict) and res.get("status") == "success" and res.get("key") == key:
+            return res.get("value")
+    except Exception as e:
+        print(f"LocalStorage Component Error: {e}", flush=True)
+    return None
+
+def set_local_storage(key, value):
+    try:
+        _local_storage(action="set", key=key, value=value)
+    except Exception as e:
+        print(f"LocalStorage Component Error: {e}", flush=True)
+
+def clear_local_storage(key):
+    try:
+        _local_storage(action="clear", key=key)
+    except Exception as e:
+        print(f"LocalStorage Component Error: {e}", flush=True)
+
+# Auto-login check on page reload
+if not st.session_state.get("is_admin", False):
+    stored_token = get_local_storage("admin_token")
+    if stored_token:
+        correct_password = st.secrets.get("app_password", "")
+        if correct_password:
+            correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
+            if stored_token == correct_hash:
+                st.session_state["is_admin"] = True
+                st.rerun()
+
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
 # ---------------------------------------------------------------------------
@@ -582,7 +621,16 @@ def set_admin():
     """Callback: validate admin password and set is_admin flag."""
     entered = st.session_state.get("admin_input", "")
     correct = st.secrets.get("app_password", "")
-    st.session_state["is_admin"] = (entered == correct) and bool(correct)
+    is_correct = (entered == correct) and bool(correct)
+    st.session_state["is_admin"] = is_correct
+    
+    if is_correct:
+        if st.session_state.get("remember_admin_session"):
+            correct_hash = hashlib.sha256(correct.encode()).hexdigest()
+            set_local_storage("admin_token", correct_hash)
+    else:
+        # Clear token if login failed or password was cleared
+        clear_local_storage("admin_token")
 
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
@@ -815,16 +863,23 @@ with st.sidebar:
 
     # ── Admin login (hidden at the bottom of sidebar) ───────────────────────
     st.markdown("<hr style='margin: 1.5rem 0 0.5rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
-    st.text_input(
-        "🔐 כניסת מנהל",
-        type="password",
-        key="admin_input",
-        on_change=set_admin,
-        placeholder="סיסמת מנהל...",
-        label_visibility="collapsed",
-    )
-    if st.session_state["is_admin"]:
+    if not st.session_state["is_admin"]:
+        st.text_input(
+            "🔐 כניסת מנהל",
+            type="password",
+            key="admin_input",
+            on_change=set_admin,
+            placeholder="סיסמת מנהל...",
+            label_visibility="collapsed",
+        )
+        st.checkbox("זכור אותי במחשב זה", key="remember_admin_session")
+    else:
         st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
+        if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
+            st.session_state["is_admin"] = False
+            st.session_state["admin_input"] = ""
+            clear_local_storage("admin_token")
+            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Apply Global Filters to working dataset
