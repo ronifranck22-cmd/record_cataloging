@@ -582,8 +582,6 @@ if "selected_letters" not in st.session_state:
     st.session_state["selected_letters"] = []
 if "should_close_sidebar" not in st.session_state:
     st.session_state["should_close_sidebar"] = False
-if "rows_per_page" not in st.session_state:
-    st.session_state["rows_per_page"] = 50
 
 # --- Custom LocalStorage Component for 'Remember Session' ---
 import os
@@ -919,8 +917,7 @@ if st.session_state["selected_letters"]:
     filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["selected_letters"])]
 
 total_filtered_records = len(filtered_df)
-rows_limit = st.session_state.get("rows_per_page", 50)
-MAX_PAGE = max(0, (total_filtered_records - 1) // rows_limit)
+MAX_PAGE = max(0, (total_filtered_records - 1) // 50)
 if st.session_state["current_page"] > MAX_PAGE:
     st.session_state["current_page"] = MAX_PAGE
 
@@ -986,12 +983,15 @@ with st.sidebar:
 
     st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
-    # 5. 'שורות בתצוגה (אחרי סינון)'
-    st.selectbox(
-        "שורות בתצוגה (אחרי סינון)",
-        options=[25, 50, 100, 200],
-        index=[25, 50, 100, 200].index(st.session_state.get("rows_per_page", 50)),
-        key="rows_per_page"
+    # 5. 'שורות בתצוגה (אחרי סינון)' (Stat card showing filtered lines count)
+    st.markdown(
+        f"""
+        <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: 8px;">
+            <span class="label">שורות בתצוגה (אחרי סינון)</span>
+            <span class="num">{total_filtered_records}</span>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
 
     st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
@@ -1016,16 +1016,6 @@ with st.sidebar:
         </div>
         """,
         unsafe_allow_html=True,
-    )
-
-    st.markdown(
-        f"""
-        <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: 8px;">
-            <span class="label">שורות בתצוגה (אחרי סינון)</span>
-            <span class="num">{total_filtered_records}</span>
-        </div>
-        """,
-        unsafe_allow_html=True
     )
 
     st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
@@ -1475,9 +1465,8 @@ with st.container():
 if filtered_df.empty:
     st.info("לא נמצאו תקליטים תחת חיפוש זה.")
 else:
-    rows_limit = st.session_state.get("rows_per_page", 50)
-    START_IDX = st.session_state["current_page"] * rows_limit
-    END_IDX = START_IDX + rows_limit
+    START_IDX = st.session_state["current_page"] * 50
+    END_IDX = START_IDX + 50
     page_df = filtered_df.iloc[START_IDX:END_IDX]
 
     # Convert image URLs for ImageColumn rendering
