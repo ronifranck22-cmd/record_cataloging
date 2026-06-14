@@ -1030,6 +1030,16 @@ with st.sidebar:
     st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
     st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
 
+    # ── Debug Session Logs ──────────────────────────────────────
+    st.markdown("<hr style='margin: 1rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:var(--color-text-muted); margin:0 0 0.2rem;'>🔧 דיאגנוסטיקה: Remember Me</p>", unsafe_allow_html=True)
+    st.write({
+        "is_admin": st.session_state.get("is_admin"),
+        "remember_me_checked": st.session_state.get("remember_admin_session"),
+        "localStorage_action": st.session_state.get("local_storage_action"),
+        "token_retrieved": "Yes (hash matches)" if st.session_state.get("is_admin") else "No / Not loaded yet"
+    })
+
     # Auto-close drawer JS injection on filter selection (mobile only)
     if st.session_state.get("should_close_sidebar"):
         st.session_state["should_close_sidebar"] = False
