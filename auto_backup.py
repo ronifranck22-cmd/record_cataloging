@@ -24,7 +24,7 @@ from db_client import get_db
 import record_store
 
 # Constants
-_BACKUP_FILENAME_RE = re.compile(r"^records_backup_\d{8}_\d{6}\.csv$")
+_BACKUP_FILENAME_RE = re.compile(r"^records_backup_.*\.csv$", re.IGNORECASE)
 _SCOPES = ["https://www.googleapis.com/auth/drive"]
 _MAX_BACKUPS = 3
 
