@@ -1485,10 +1485,11 @@ else:
                 pass
         return url
 
-    # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
-    display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
+    # Explicit column ordering (Artist/Name leftmost so they display first on mobile, Cover/Notes rightmost)
+    display_cols = ["artist", "name", "box", "notes"] if show_box else ["artist", "name", "notes"]
     display_df = page_df[display_cols].copy()
-    display_df.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+    cover_idx = 3 if show_box else 2
+    display_df.insert(cover_idx, "עטיפה", page_df["image_url"].apply(clean_drive_url))
     
     column_config = {
         "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
@@ -1503,9 +1504,10 @@ else:
         editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
         
         # Data Isolation: Create a clean copy of the paginated dataframe for editing
-        admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
+        admin_cols = ["artist", "name", "box", "notes"] if show_box else ["artist", "name", "notes"]
         df_for_editing = page_df[admin_cols].copy()
-        df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+        cover_idx = 3 if show_box else 2
+        df_for_editing.insert(cover_idx, "עטיפה", page_df["image_url"].apply(clean_drive_url))
         df_for_editing.insert(0, "צפה", False)
         
         # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
@@ -1639,40 +1641,3 @@ with paginator_col_prev:
         if st.button("→ הבא"):
              st.session_state["current_page"] += 1
              st.rerun()
-
-# Unconditional JS script injection at the end of the page to handle RTL dataframe scrolling on mobile
-components.html(
-    """
-    <script>
-    const parentDoc = window.parent.document;
-    const isMobile = window.parent.innerWidth < 768;
-    if (isMobile) {
-        const scrollDFs = () => {
-            const dfs = parentDoc.querySelectorAll('div[data-testid="stDataFrame"]');
-            dfs.forEach(df => {
-                if (!df.dataset.rtlScrolled) {
-                    let scrolled = false;
-                    df.querySelectorAll('div').forEach(d => {
-                        if (d.scrollWidth > d.clientWidth) {
-                            d.scrollLeft = d.scrollWidth;
-                            scrolled = true;
-                        }
-                    });
-                    if (scrolled) {
-                        df.dataset.rtlScrolled = 'true';
-                    }
-                }
-            });
-        };
-        // Run immediately and retry to handle rendering delay
-        scrollDFs();
-        setTimeout(scrollDFs, 100);
-        setTimeout(scrollDFs, 300);
-        setTimeout(scrollDFs, 500);
-        setTimeout(scrollDFs, 800);
-    }
-    </script>
-    """,
-    height=0,
-    width=0,
-)
