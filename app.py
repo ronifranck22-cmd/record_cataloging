@@ -925,7 +925,7 @@ if st.session_state["current_page"] > MAX_PAGE:
     st.session_state["current_page"] = MAX_PAGE
 
 with st.sidebar:
-    # ── Admin Login/Session Block ───────────────────────────────
+    # 1. Admin Login/Session Block
     if not st.session_state["is_admin"]:
         st.text_input(
             "🔐 כניסת מנהל",
@@ -946,11 +946,11 @@ with st.sidebar:
 
     st.markdown("<hr style='margin: 0.5rem 0 0.8rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
-    # ── חיפוש ──────────────────────────────────────────────────
+    # 2. חיפוש (Header + Search)
     st.markdown('<h3 style="text-align: right; margin: 0 0 0.4rem 0;"><i class="fas fa-search"></i> חיפוש</h3>', unsafe_allow_html=True)
     st.text_input("חיפוש חופשי", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input", label_visibility="collapsed")
 
-    # ── סנן לפי אמן/אות (Segmented Control) ──────────────────────
+    # 3. 'סנן לפי אמן/אות' (Segmented Control)
     filter_type = st.segmented_control(
         "סנן לפי אמן/אות",
         options=["אמן", "אות"],
@@ -980,15 +980,15 @@ with st.sidebar:
             on_change=on_letter_change
         )
 
-    # ── אפס סינונים ─────────────────────────────────────────────
+    # 4. 'אפס סינונים ורענן'
     st.markdown('<div id="reset-filters-anchor" style="margin-top: 0.4rem;"></div>', unsafe_allow_html=True)
     st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
 
     st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
-    # ── שורות בתצוגה ────────────────────────────────────────────
+    # 5. 'שורות בתצוגה (אחרי סינון)'
     st.selectbox(
-        "שורות בתצוגה",
+        "שורות בתצוגה (אחרי סינון)",
         options=[25, 50, 100, 200],
         index=[25, 50, 100, 200].index(st.session_state.get("rows_per_page", 50)),
         key="rows_per_page"
@@ -996,7 +996,7 @@ with st.sidebar:
 
     st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
-    # ── נתונים ──────────────────────────────────────────────────
+    # 6. נתונים (Premium Stats)
     st.markdown('<h3 style="text-align: right; margin: 0 0 0.5rem 0;"><i class="fas fa-layer-group"></i> נתונים</h3>', unsafe_allow_html=True)
     
     total_records = len(df)
@@ -1028,13 +1028,16 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
-    # ── הגרל תקליט ──────────────────────────────────────────────
+    st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
+
+    # 7. הגרל תקליט (Lucky Draw)
     st.markdown('<div style="margin: 0.8rem 0 0 0;">', unsafe_allow_html=True)
     if st.button(" הגרל תקליט", use_container_width=True):
         st.session_state["drawn_record"] = None
         st.session_state["spin_key"] = 0
         st.session_state["drawn_at"] = 0.0
         st.session_state["dialog_open"] = True
+        st.session_state["should_close_sidebar"] = True
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1048,7 +1051,7 @@ with st.sidebar:
             const sidebar = parentDoc.querySelector('[data-testid="stSidebar"]');
             const collapseBtn = parentDoc.querySelector('[data-testid="stSidebarCollapseButton"] button');
             const isMobile = window.parent.innerWidth < 768;
-            if (isMobile && sidebar && sidebar.getAttribute('data-collapsed') === 'false' && collapseBtn) {
+            if (isMobile && sidebar && sidebar.getAttribute('data-collapsed') !== 'true' && collapseBtn) {
                 collapseBtn.click();
             }
             </script>
