@@ -90,9 +90,11 @@ st.markdown(
         --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Hide the custom localStorage component iframe container completely */
+    /* Hide the custom localStorage component and scripts iframe containers completely */
     div.element-container:has(iframe[title*="local_storage"]),
-    div[data-testid="element-container"]:has(iframe[title*="local_storage"]) {
+    div[data-testid="element-container"]:has(iframe[title*="local_storage"]),
+    div.element-container:has(iframe[title*="st.html"]),
+    div[data-testid="element-container"]:has(iframe[title*="st.html"]) {
         height: 0px !important;
         min-height: 0px !important;
         margin: 0 !important;
@@ -100,13 +102,38 @@ st.markdown(
         overflow: hidden !important;
         visibility: hidden !important;
     }
-    iframe[title*="local_storage"] {
+    iframe[title*="local_storage"], iframe[title*="st.html"] {
         height: 0px !important;
         width: 0px !important;
         border: none !important;
         visibility: hidden !important;
         margin: 0 !important;
         padding: 0 !important;
+        display: none !important;
+    }
+
+    /* Mobile Drawer/Overlay Sidebar Behavior */
+    @media (max-width: 768px) {
+        [data-testid="stSidebar"] {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            height: 100vh !important;
+            width: 75vw !important;
+            max-width: 300px !important;
+            z-index: 999999 !important;
+            box-shadow: 5px 0 25px rgba(0,0,0,0.15) !important;
+            border-left: 1px solid var(--color-border) !important;
+        }
+    }
+
+    /* Smooth table update fade-in animation for visual feedback */
+    div[data-testid="stDataFrame"] {
+        animation: tableFadeIn 0.35s ease-out !important;
+    }
+    @keyframes tableFadeIn {
+        from { opacity: 0.6; transform: translateY(2px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     /* Base Styling */
@@ -549,6 +576,12 @@ if "detail_record" not in st.session_state:
     st.session_state["detail_record"] = None
 if "selection_counter" not in st.session_state:
     st.session_state["selection_counter"] = 0
+if "selected_artists" not in st.session_state:
+    st.session_state["selected_artists"] = []
+if "selected_letters" not in st.session_state:
+    st.session_state["selected_letters"] = []
+if "should_close_sidebar" not in st.session_state:
+    st.session_state["should_close_sidebar"] = False
 
 # --- Custom LocalStorage Component for 'Remember Session' ---
 import os
@@ -649,7 +682,18 @@ def reset_all_filters():
     st.session_state["search_input"] = ""
     st.session_state["artist_select"] = []
     st.session_state["letter_select"] = []
+    st.session_state["selected_artists"] = []
+    st.session_state["selected_letters"] = []
+    st.session_state["should_close_sidebar"] = True
     load_data()
+
+def on_artist_change():
+    st.session_state["selected_artists"] = st.session_state.get("artist_select", [])
+    st.session_state["should_close_sidebar"] = True
+
+def on_letter_change():
+    st.session_state["selected_letters"] = st.session_state.get("letter_select", [])
+    st.session_state["should_close_sidebar"] = True
 
 def set_admin():
     """Callback: validate admin password and set is_admin flag."""
@@ -850,6 +894,28 @@ def draw_record_dialog():
             st.rerun()
 
 with st.sidebar:
+    # ── Admin login (very top of sidebar) ───────────────────────
+    if not st.session_state["is_admin"]:
+        st.text_input(
+            "🔐 כניסת מנהל",
+            type="password",
+            key="admin_input",
+            on_change=set_admin,
+            placeholder="סיסמת מנהל...",
+            label_visibility="collapsed",
+        )
+        st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session")
+    else:
+        st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0 0 0.5rem;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
+        if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
+            st.session_state["is_admin"] = False
+            st.session_state["admin_input"] = ""
+            clear_local_storage("admin_token")
+            st.rerun()
+
+    st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
+
+    # ── נתונים ──────────────────────────────────────────────────
     st.markdown('<h3 style="text-align: right; margin-top: 0;"><i class="fas fa-layer-group"></i> נתונים</h3>', unsafe_allow_html=True)
     
     total_records = len(df)
@@ -881,39 +947,65 @@ with st.sidebar:
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> סינון</h3>', unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
+
+    # ── חיפוש ──────────────────────────────────────────────────
+    st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> חיפוש</h3>', unsafe_allow_html=True)
 
     st.text_input("חיפוש חופשי", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input", label_visibility="collapsed")
 
-    artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
-    st.multiselect("סנן לפי אמן", artists, key="artist_select")
+    # ── סנן לפי אמן/אות (Segmented Control) ──────────────────────
+    filter_type = st.segmented_control(
+        "סנן לפי אמן/אות",
+        options=["אמן", "אות"],
+        default="אמן",
+        label_visibility="visible"
+    )
+    if filter_type is None:
+        filter_type = "אמן"
 
+    artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
     letters = sorted(df["id_letter"].dropna().unique()) if not df.empty else []
-    st.multiselect("סנן לפי אות", letters, key="letter_select")
+
+    if filter_type == "אמן":
+        st.multiselect(
+            "סנן לפי אמן",
+            artists,
+            key="artist_select",
+            default=st.session_state["selected_artists"],
+            on_change=on_artist_change
+        )
+    else:
+        st.multiselect(
+            "סנן לפי אות",
+            letters,
+            key="letter_select",
+            default=st.session_state["selected_letters"],
+            on_change=on_letter_change
+        )
 
     # Reset Button — uses on_click callback to avoid StreamlitAPIException
     st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
     st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
 
-    # ── Admin login (hidden at the bottom of sidebar) ───────────────────────
-    st.markdown("<hr style='margin: 1.5rem 0 0.5rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
-    if not st.session_state["is_admin"]:
-        st.text_input(
-            "🔐 כניסת מנהל",
-            type="password",
-            key="admin_input",
-            on_change=set_admin,
-            placeholder="סיסמת מנהל...",
-            label_visibility="collapsed",
+    # Auto-close drawer JS injection on filter selection (mobile only)
+    if st.session_state.get("should_close_sidebar"):
+        st.session_state["should_close_sidebar"] = False
+        components.html(
+            """
+            <script>
+            const parentDoc = window.parent.document;
+            const sidebar = parentDoc.querySelector('[data-testid="stSidebar"]');
+            const collapseBtn = parentDoc.querySelector('[data-testid="stSidebarCollapseButton"] button');
+            const isMobile = window.parent.innerWidth < 768;
+            if (isMobile && sidebar && sidebar.getAttribute('data-collapsed') === 'false' && collapseBtn) {
+                collapseBtn.click();
+            }
+            </script>
+            """,
+            height=0,
+            width=0,
         )
-        st.checkbox("זכור אותי במחשב זה", key="remember_admin_session")
-    else:
-        st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
-        if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
-            st.session_state["is_admin"] = False
-            st.session_state["admin_input"] = ""
-            clear_local_storage("admin_token")
-            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Apply Global Filters to working dataset
@@ -932,11 +1024,11 @@ if sq:
     )
     filtered_df = filtered_df[mask]
 
-if st.session_state["artist_select"]:
-    filtered_df = filtered_df[filtered_df["artist"].isin(st.session_state["artist_select"])]
+if st.session_state["selected_artists"]:
+    filtered_df = filtered_df[filtered_df["artist"].isin(st.session_state["selected_artists"])]
 
-if st.session_state["letter_select"]:
-    filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["letter_select"])]
+if st.session_state["selected_letters"]:
+    filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["selected_letters"])]
 
 total_filtered_records = len(filtered_df)
 MAX_PAGE = max(0, (total_filtered_records - 1) // 50)
