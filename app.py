@@ -668,6 +668,11 @@ if st.session_state.get("is_admin"):
             if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
                 clear_local_storage("admin_token")
                 st.rerun()
+else:
+    # If not logged in as admin, but local storage still holds a token, clear it
+    if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
+        clear_local_storage("admin_token")
+        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -729,21 +734,10 @@ def on_letter_change():
 
 def set_admin():
     """Callback: validate admin password and set is_admin flag."""
-    st.write("DEBUG: set_admin called")
     entered = st.session_state.get("admin_input", "")
     correct = st.secrets.get("app_password", "")
     is_correct = (entered == correct) and bool(correct)
     st.session_state["is_admin"] = is_correct
-    
-    if is_correct:
-        if st.session_state.get("remember_admin_session"):
-            correct_hash = hashlib.sha256(correct.encode()).hexdigest()
-            set_local_storage("admin_token", correct_hash)
-            st.rerun()
-    else:
-        # Clear token if login failed or password was cleared
-        clear_local_storage("admin_token")
-        st.rerun()
 
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
