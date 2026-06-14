@@ -136,6 +136,19 @@ st.markdown(
         to { opacity: 1; transform: translateY(0); }
     }
 
+    /* Table Display and Column Cut-off Fix */
+    div[data-testid="stDataFrame"] {
+        direction: rtl !important;
+        width: 100% !important;
+        padding-right: 4px !important;
+        padding-left: 4px !important;
+        box-sizing: border-box !important;
+    }
+    div[data-testid="stDataFrame"] * {
+        word-wrap: break-word !important;
+        white-space: normal !important;
+    }
+
     /* Base Styling */
     body {
         font-family: 'Assistant', sans-serif !important;
@@ -922,7 +935,7 @@ if st.session_state["current_page"] > MAX_PAGE:
     st.session_state["current_page"] = MAX_PAGE
 
 with st.sidebar:
-    # 1. Admin Login/Session Block
+    # ── Admin Login/Session Block (very top) ────────────────────
     if not st.session_state["is_admin"]:
         st.text_input(
             "🔐 כניסת מנהל",
@@ -941,13 +954,49 @@ with st.sidebar:
             clear_local_storage("admin_token")
             st.rerun()
 
-    st.markdown("<hr style='margin: 0.5rem 0 0.8rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
-    # 2. חיפוש (Header + Search)
-    st.markdown('<h3 style="text-align: right; margin: 0 0 0.4rem 0;"><i class="fas fa-search"></i> חיפוש</h3>', unsafe_allow_html=True)
+    # ── נתונים ──────────────────────────────────────────────────
+    st.markdown('<h3 style="text-align: right; margin-top: 0;"><i class="fas fa-layer-group"></i> נתונים</h3>', unsafe_allow_html=True)
+    
+    total_records = len(df)
+    total_artists = df["artist"].nunique() if not df.empty else 0
+
+    st.markdown(
+        f"""
+        <div class="sidebar-stats">
+            <div class="sidebar-stat-card">
+                <span class="label">סה״כ תקליטים</span>
+                <span class="num">{total_records}</span>
+            </div>
+            <div class="sidebar-stat-card">
+                <span class="label">סה״כ אמנים</span>
+                <span class="num">{total_artists}</span>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    # --- Draw Record Button (Lucky Draw) ---
+    st.markdown('<div style="margin: 0.5rem 0;">', unsafe_allow_html=True)
+    if st.button(" הגרל תקליט", use_container_width=True):
+        st.session_state["drawn_record"] = None
+        st.session_state["spin_key"] = 0
+        st.session_state["drawn_at"] = 0.0
+        st.session_state["dialog_open"] = True
+        st.session_state["should_close_sidebar"] = True
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
+
+    # ── חיפוש ──────────────────────────────────────────────────
+    st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> חיפוש</h3>', unsafe_allow_html=True)
+
     st.text_input("חיפוש חופשי", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input", label_visibility="collapsed")
 
-    # 3. 'סנן לפי אמן/אות' (Segmented Control)
+    # ── סנן לפי אמן/אות (Segmented Control) ──────────────────────
     filter_type = st.segmented_control(
         "סנן לפי אמן/אות",
         options=["אמן", "אות"],
@@ -977,59 +1026,9 @@ with st.sidebar:
             on_change=on_letter_change
         )
 
-    # 4. 'אפס סינונים ורענן'
-    st.markdown('<div id="reset-filters-anchor" style="margin-top: 0.4rem;"></div>', unsafe_allow_html=True)
+    # Reset Button — uses on_click callback to avoid StreamlitAPIException
+    st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
     st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
-
-    st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
-
-    # 5. 'שורות בתצוגה (אחרי סינון)' (Stat card showing filtered lines count)
-    st.markdown(
-        f"""
-        <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: 8px;">
-            <span class="label">שורות בתצוגה (אחרי סינון)</span>
-            <span class="num">{total_filtered_records}</span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-
-    st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
-
-    # 6. נתונים (Premium Stats)
-    st.markdown('<h3 style="text-align: right; margin: 0 0 0.5rem 0;"><i class="fas fa-layer-group"></i> נתונים</h3>', unsafe_allow_html=True)
-    
-    total_records = len(df)
-    total_artists = df["artist"].nunique() if not df.empty else 0
-
-    st.markdown(
-        f"""
-        <div class="sidebar-stats">
-            <div class="sidebar-stat-card">
-                <span class="label">סה״כ תקליטים</span>
-                <span class="num">{total_records}</span>
-            </div>
-            <div class="sidebar-stat-card">
-                <span class="label">סה״כ אמנים</span>
-                <span class="num">{total_artists}</span>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("<hr style='margin: 0.8rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
-
-    # 7. הגרל תקליט (Lucky Draw)
-    st.markdown('<div style="margin: 0.8rem 0 0 0;">', unsafe_allow_html=True)
-    if st.button(" הגרל תקליט", use_container_width=True):
-        st.session_state["drawn_record"] = None
-        st.session_state["spin_key"] = 0
-        st.session_state["drawn_at"] = 0.0
-        st.session_state["dialog_open"] = True
-        st.session_state["should_close_sidebar"] = True
-        st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
     # Auto-close drawer JS injection on filter selection (mobile only)
     if st.session_state.get("should_close_sidebar"):
@@ -1408,6 +1407,17 @@ if st.session_state.get("detail_record") is not None:
 # Main Layout
 # ---------------------------------------------------------------------------
 
+# Update Sidebar explicitly referencing the Current View (Density)
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: -10px;">
+        <span class="label">שורות בתצוגה (אחרי סינון)</span>
+        <span class="num">{total_filtered_records}</span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 # Row 1: Brand (Title centered, Logo on left)
 with st.container():
     st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
@@ -1485,11 +1495,10 @@ else:
                 pass
         return url
 
-    # Explicit column ordering (Artist/Name leftmost so they display first on mobile, Cover/Notes rightmost)
-    display_cols = ["artist", "name", "box", "notes"] if show_box else ["artist", "name", "notes"]
+    # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
+    display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
     display_df = page_df[display_cols].copy()
-    cover_idx = 3 if show_box else 2
-    display_df.insert(cover_idx, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+    display_df.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
     
     column_config = {
         "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
@@ -1504,10 +1513,9 @@ else:
         editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
         
         # Data Isolation: Create a clean copy of the paginated dataframe for editing
-        admin_cols = ["artist", "name", "box", "notes"] if show_box else ["artist", "name", "notes"]
+        admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
         df_for_editing = page_df[admin_cols].copy()
-        cover_idx = 3 if show_box else 2
-        df_for_editing.insert(cover_idx, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+        df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
         df_for_editing.insert(0, "צפה", False)
         
         # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
@@ -1641,3 +1649,40 @@ with paginator_col_prev:
         if st.button("→ הבא"):
              st.session_state["current_page"] += 1
              st.rerun()
+
+# Unconditional JS script injection at the end of the page to handle RTL dataframe scrolling on mobile
+components.html(
+    """
+    <script>
+    const parentDoc = window.parent.document;
+    const isMobile = window.parent.innerWidth < 768;
+    if (isMobile) {
+        const scrollDFs = () => {
+            const dfs = parentDoc.querySelectorAll('div[data-testid="stDataFrame"]');
+            dfs.forEach(df => {
+                if (!df.dataset.rtlScrolled) {
+                    let scrolled = false;
+                    df.querySelectorAll('div').forEach(d => {
+                        if (d.scrollWidth > d.clientWidth) {
+                            d.scrollLeft = d.scrollWidth;
+                            scrolled = true;
+                        }
+                    });
+                    if (scrolled) {
+                        df.dataset.rtlScrolled = 'true';
+                    }
+                }
+            });
+        };
+        // Run immediately and retry to handle rendering delay
+        scrollDFs();
+        setTimeout(scrollDFs, 100);
+        setTimeout(scrollDFs, 300);
+        setTimeout(scrollDFs, 500);
+        setTimeout(scrollDFs, 800);
+    }
+    </script>
+    """,
+    height=0,
+    width=0,
+)
