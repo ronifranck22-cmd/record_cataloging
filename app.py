@@ -990,6 +990,19 @@ def add_record_dialog():
                 })
                 st.cache_data.clear()  # Invalidate cache so next read hits Firestore
                 load_data()
+                # --- Audit log operation ---
+                try:
+                    from audit_logger import log_mutation
+                    log_mutation(
+                        action_type="ADD",
+                        record_id=new_doc_id,
+                        artist=new_artist.strip(),
+                        album=new_name.strip(),
+                        notes=f"Added record: Box {new_box}, Notes: {new_notes.strip()}",
+                        firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                    )
+                except Exception as e:
+                    print(f"Audit Log Integration Error (ADD): {e}", flush=True)
                 # --- Auto-sync cover image to Drive ---
                 if new_image_url.strip():
                     with st.spinner("מוריד תמונת עטיפה..."):
@@ -1030,9 +1043,34 @@ def delete_record_dialog():
     }
     selected_delete = st.selectbox("בחר תקליט", list(delete_options.keys()))
     if st.button("מחק סופית", type="primary", use_container_width=True):
-        record_store.delete(db, delete_options[selected_delete])
+        selected_id = delete_options[selected_delete]
+        selected_row = filtered_df[filtered_df["id"] == selected_id]
+        if not selected_row.empty:
+            del_artist = selected_row.iloc[0].get("artist", "")
+            del_name = selected_row.iloc[0].get("name", "")
+            del_notes = selected_row.iloc[0].get("notes", "")
+        else:
+            del_artist = ""
+            del_name = ""
+            del_notes = ""
+
+        record_store.delete(db, selected_id)
         st.cache_data.clear()  # Invalidate cache so next read hits Firestore
         load_data()
+        
+        # --- Audit log operation ---
+        try:
+            from audit_logger import log_mutation
+            log_mutation(
+                action_type="DELETE",
+                record_id=selected_id,
+                artist=del_artist,
+                album=del_name,
+                notes=f"Deleted record. Previous notes: {del_notes}",
+                firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+            )
+        except Exception as e:
+            print(f"Audit Log Integration Error (DELETE): {e}", flush=True)
         # --- Auto-backup to Google Drive (background task) ---
         if st.secrets.get("enable_backup", True):
             try:
@@ -1106,6 +1144,26 @@ def update_record_dialog():
                 time.sleep(0.8)
                 st.cache_data.clear()  # Invalidate cache so next read hits Firestore
                 load_data()
+                # --- Audit log operation ---
+                try:
+                    changed_fields = []
+                    for k, v in changes.items():
+                        old_val = selected_record.get(k)
+                        if str(old_val).strip() != str(v).strip():
+                            changed_fields.append(f"{k}: '{old_val}' -> '{v}'")
+                    notes_desc = "Updated fields: " + ", ".join(changed_fields) if changed_fields else "No fields changed"
+                    
+                    from audit_logger import log_mutation
+                    log_mutation(
+                        action_type="EDIT",
+                        record_id=selected_record["id"],
+                        artist=updated_artist.strip(),
+                        album=updated_name.strip(),
+                        notes=notes_desc,
+                        firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                    )
+                except Exception as e:
+                    print(f"Audit Log Integration Error (EDIT): {e}", flush=True)
                 # --- Auto-sync updated cover image to Drive ---
                 if new_raw_url and new_raw_url != old_raw_url:
                     with st.spinner("מוריד תמונת עטיפה..."):
@@ -1328,6 +1386,27 @@ else:
                         if "box" in changes:
                             changes["box"] = int(changes["box"])
                         record_store.update(db, doc_id, changes)
+                        
+                        # --- Audit log operation ---
+                        try:
+                            changed_fields = []
+                            for k, v in changes.items():
+                                old_val = original_row.get(k)
+                                if str(old_val).strip() != str(v).strip():
+                                    changed_fields.append(f"{k}: '{old_val}' -> '{v}'")
+                            notes_desc = "Inline edit: " + ", ".join(changed_fields) if changed_fields else "Inline edit (no fields changed)"
+                            
+                            from audit_logger import log_mutation
+                            log_mutation(
+                                action_type="EDIT",
+                                record_id=doc_id,
+                                artist=changes.get("artist", original_row.get("artist", "")),
+                                album=changes.get("name", original_row.get("name", "")),
+                                notes=notes_desc,
+                                firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                            )
+                        except Exception as e:
+                            print(f"Audit Log Integration Error (INLINE EDIT): {e}", flush=True)
                 st.cache_data.clear()  # Invalidate cache so next read hits Firestore
                 load_data()
                 # --- Auto-backup to Google Drive (background task) ---
