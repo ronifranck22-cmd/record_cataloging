@@ -601,6 +601,8 @@ if "should_close_sidebar" not in st.session_state:
     st.session_state["should_close_sidebar"] = False
 if "remember_me_persistent" not in st.session_state:
     st.session_state["remember_me_persistent"] = False
+if "auth_loading" not in st.session_state:
+    st.session_state["auth_loading"] = True
 
 # --- Custom LocalStorage Component for 'Remember Session' ---
 import os
@@ -633,30 +635,56 @@ def clear_local_storage(key):
 
 # Process component response
 res_val = None
-if res and isinstance(res, dict) and res.get("status") == "success":
-    res_action = res.get("action")
-    res_val = res.get("value")
-    
-    if res_action == "get":
-        if res_val:
-            correct_password = st.secrets.get("app_password", "")
-            if correct_password:
-                correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
-                if res_val == correct_hash:
-                    if not st.session_state.get("is_admin", False):
+if res and isinstance(res, dict):
+    if res.get("status") == "success":
+        res_action = res.get("action")
+        res_val = res.get("value")
+        
+        if res_action == "get":
+            if st.session_state.get("auth_loading", True):
+                correct_password = st.secrets.get("app_password", "")
+                if correct_password:
+                    correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
+                    if res_val == correct_hash:
                         st.session_state["is_admin"] = True
                         st.session_state["remember_me_persistent"] = True
-                        st.rerun()
-    elif res_action == "set":
-        # Reset queue back to 'get' state
-        st.session_state["local_storage_action"] = "get"
-        st.session_state["local_storage_val"] = None
-        st.rerun()
-    elif res_action == "clear":
-        # Reset queue back to 'get' state
-        st.session_state["local_storage_action"] = "get"
-        st.session_state["local_storage_val"] = None
-        st.rerun()
+                    else:
+                        st.session_state["is_admin"] = False
+                st.session_state["auth_loading"] = False
+                st.rerun()
+        elif res_action == "set":
+            # Reset queue back to 'get' state
+            st.session_state["local_storage_action"] = "get"
+            st.session_state["local_storage_val"] = None
+            st.rerun()
+        elif res_action == "clear":
+            # Reset queue back to 'get' state
+            st.session_state["local_storage_action"] = "get"
+            st.session_state["local_storage_val"] = None
+            st.rerun()
+    else:
+        # If the component reports an error or unknown response, stop loading
+        if st.session_state.get("auth_loading", True):
+            st.session_state["auth_loading"] = False
+            st.rerun()
+
+# Wait condition: If authentication is still loading, show a loading spinner and stop execution
+if st.session_state.get("auth_loading", True):
+    st.markdown("""
+        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; direction: rtl;">
+            <div style="text-align: center;">
+                <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
+                <p style="color: #666; font-size: 1.1rem;">אנא המתן, בודק חיבור...</p>
+            </div>
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        </div>
+    """, unsafe_allow_html=True)
+    st.stop()
 
 # Active sync check to write/clear token based on checkbox status when admin is logged in
 if st.session_state.get("is_admin"):
@@ -961,6 +989,7 @@ if st.session_state["current_page"] > MAX_PAGE:
 with st.sidebar:
     # ── Admin Login/Session Block (very top) ────────────────────
     if not st.session_state["is_admin"]:
+        st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session", on_change=on_remember_me_change, value=st.session_state.get("remember_me_persistent", False))
         st.text_input(
             "🔐 כניסת מנהל",
             type="password",
@@ -969,7 +998,6 @@ with st.sidebar:
             placeholder="סיסמת מנהל...",
             label_visibility="collapsed",
         )
-        st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session", on_change=on_remember_me_change)
     else:
         st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0 0 0.5rem;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
         if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
@@ -1062,6 +1090,7 @@ with st.sidebar:
     st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:var(--color-text-muted); margin:0 0 0.2rem;'>🔧 דיאגנוסטיקה: Remember Me</p>", unsafe_allow_html=True)
     st.write({
         "is_admin": st.session_state.get("is_admin"),
+        "auth_loading": st.session_state.get("auth_loading"),
         "remember_me_checked": st.session_state.get("remember_me_persistent"),
         "localStorage_action": st.session_state.get("local_storage_action"),
         "token_retrieved": "Yes (hash matches)" if st.session_state.get("is_admin") else "No / Not loaded yet"
