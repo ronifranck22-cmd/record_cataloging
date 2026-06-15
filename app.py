@@ -90,31 +90,6 @@ st.markdown(
         --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Hide the custom localStorage component and scripts iframe containers completely without halting them */
-    div.element-container:has(iframe[title*="local_storage"]),
-    div[data-testid="element-container"]:has(iframe[title*="local_storage"]),
-    div.element-container:has(iframe[title*="st.html"]),
-    div[data-testid="element-container"]:has(iframe[title*="st.html"]) {
-        height: 1px !important;
-        min-height: 1px !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        overflow: hidden !important;
-        position: absolute !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
-    iframe[title*="local_storage"], iframe[title*="st.html"] {
-        height: 1px !important;
-        width: 1px !important;
-        border: none !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        position: absolute !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }
-
     /* Mobile Drawer/Overlay Sidebar Behavior */
     @media (max-width: 768px) {
         [data-testid="stSidebar"] {
@@ -598,41 +573,7 @@ if "selected_letters" not in st.session_state:
     st.session_state["selected_letters"] = []
 if "should_close_sidebar" not in st.session_state:
     st.session_state["should_close_sidebar"] = False
-if "remember_me_persistent" not in st.session_state:
-    st.session_state["remember_me_persistent"] = False
 
-import os
-import hashlib
-
-# localStorage 'Remember Session' feature is temporarily disabled.
-# Stub helpers so the rest of the code doesn't break.
-res_val = None
-
-def set_local_storage(key, value):
-    pass  # stub
-
-def clear_local_storage(key):
-    pass  # stub
-
-
-# Active sync check to write/clear token based on checkbox status when admin is logged in
-if st.session_state.get("is_admin"):
-    correct_password = st.secrets.get("app_password", "")
-    if correct_password:
-        correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
-        if st.session_state.get("remember_me_persistent"):
-            if st.session_state.get("local_storage_action") != "set" and res_val != correct_hash:
-                set_local_storage("admin_token", correct_hash)
-                st.rerun()
-        else:
-            if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
-                clear_local_storage("admin_token")
-                st.rerun()
-else:
-    # If not logged in as admin, but local storage still holds a token, clear it
-    if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
-        clear_local_storage("admin_token")
-        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -692,17 +633,24 @@ def on_letter_change():
     st.session_state["selected_letters"] = st.session_state.get("letter_select", [])
     st.session_state["should_close_sidebar"] = True
 
-def on_remember_me_change():
-    st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
-
 def set_admin():
-    """Callback: validate admin password and set is_admin flag."""
-    entered = st.session_state.get("admin_input", "")
-    correct = st.secrets.get("app_password", "")
-    is_correct = (entered == correct) and bool(correct)
-    st.session_state["is_admin"] = is_correct
-    if is_correct:
-        st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
+    """Callback: validate admin password and set is_admin flag.
+    Triggered on_change of the password text_input (fires on Enter or focus-out).
+    """
+    entered = st.session_state.get("admin_input", "").strip()
+    try:
+        correct = str(st.secrets["app_password"]).strip()
+    except (KeyError, AttributeError):
+        correct = ""
+    if entered and correct and entered == correct:
+        st.session_state["is_admin"] = True
+    elif entered:  # wrong password typed — explicitly mark not admin
+        st.session_state["is_admin"] = False
+
+def logout_admin():
+    """Callback: clear admin session state."""
+    st.session_state["is_admin"] = False
+    st.session_state["admin_input"] = ""
 
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
@@ -918,7 +866,6 @@ if st.session_state["current_page"] > MAX_PAGE:
 with st.sidebar:
     # ── Admin Login/Session Block (very top) ────────────────────
     if not st.session_state["is_admin"]:
-        st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session", on_change=on_remember_me_change, value=st.session_state.get("remember_me_persistent", False))
         st.text_input(
             "🔐 כניסת מנהל",
             type="password",
@@ -929,14 +876,7 @@ with st.sidebar:
         )
     else:
         st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0 0 0.5rem;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
-        if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
-            st.session_state["is_admin"] = False
-            st.session_state["admin_input"] = ""
-            st.session_state["remember_me_persistent"] = False
-            if "remember_admin_session" in st.session_state:
-                st.session_state["remember_admin_session"] = False
-            clear_local_storage("admin_token")
-            st.rerun()
+        st.button("התנתק כמנהל", key="logout_btn", use_container_width=True, on_click=logout_admin)
 
     st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
@@ -1014,15 +954,7 @@ with st.sidebar:
     st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
     st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
 
-    # ── Debug Session Logs ──────────────────────────────────────
-    st.markdown("<hr style='margin: 1rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
-    st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:var(--color-text-muted); margin:0 0 0.2rem;'>🔧 דיאגנוסטיקה: Remember Me</p>", unsafe_allow_html=True)
-    st.write({
-        "is_admin": st.session_state.get("is_admin"),
-        "remember_me_checked": st.session_state.get("remember_me_persistent"),
-        "localStorage_action": st.session_state.get("local_storage_action"),
-        "token_retrieved": "Yes (hash matches)" if st.session_state.get("is_admin") else "No / Not loaded yet"
-    })
+
 
     # Auto-close drawer JS injection on filter selection (mobile only)
     if st.session_state.get("should_close_sidebar"):
