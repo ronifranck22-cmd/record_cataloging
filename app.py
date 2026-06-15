@@ -574,6 +574,11 @@ if "selected_letters" not in st.session_state:
 if "should_close_sidebar" not in st.session_state:
     st.session_state["should_close_sidebar"] = False
 
+# ── URL-based session auth ──────────────────────────────────────────────────
+# To revert: delete auth.py and remove the two lines below.
+from auth import validate_session as _auth_validate, login_success as _auth_login, logout as _auth_logout
+_auth_validate()
+
 
 # ---------------------------------------------------------------------------
 # Firebase connection (cached)
@@ -644,6 +649,7 @@ def set_admin():
         correct = ""
     if entered and correct and entered == correct:
         st.session_state["is_admin"] = True
+        _auth_login(entered)  # write signed URL token (remove this line to revert)
     elif entered:  # wrong password typed — explicitly mark not admin
         st.session_state["is_admin"] = False
 
@@ -651,6 +657,7 @@ def logout_admin():
     """Callback: clear admin session state."""
     st.session_state["is_admin"] = False
     st.session_state["admin_input"] = ""
+    _auth_logout()  # clear URL token (remove this line to revert)
 
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
