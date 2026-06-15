@@ -600,1156 +600,1083 @@ if "should_close_sidebar" not in st.session_state:
     st.session_state["should_close_sidebar"] = False
 if "remember_me_persistent" not in st.session_state:
     st.session_state["remember_me_persistent"] = False
-if "auth_loading" not in st.session_state:
-    st.session_state["auth_loading"] = True
 
-# --- Custom LocalStorage Component for 'Remember Session' ---
 import os
 import hashlib
 
-if "local_storage_action" not in st.session_state:
-    st.session_state["local_storage_action"] = "get"
-if "local_storage_val" not in st.session_state:
-    st.session_state["local_storage_val"] = None
+# localStorage 'Remember Session' feature is temporarily disabled.
+# Stub helpers so the rest of the code doesn't break.
+res_val = None
 
-component_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "localStorage_component")
-_local_storage = components.declare_component("local_storage", path=component_path)
-
-# Unconditionally render the component to keep it in the DOM and process actions
-res = _local_storage(
-    action=st.session_state["local_storage_action"],
-    storage_key="admin_token",
-    value=st.session_state["local_storage_val"],
-    key="ls_iframe"
-)
-print(f"DEBUG: auth_loading={st.session_state.get('auth_loading')}, action={st.session_state.get('local_storage_action')}, res={res}", flush=True)
-
-# Wrapper helpers that update state so components can trigger them from anywhere (callbacks/buttons)
 def set_local_storage(key, value):
-    st.session_state["local_storage_action"] = "set"
-    st.session_state["local_storage_val"] = value
+    pass  # stub
 
 def clear_local_storage(key):
-    st.session_state["local_storage_action"] = "clear"
-    st.session_state["local_storage_val"] = None
+    pass  # stub
 
-# Process component response
-res_val = None
-if res and isinstance(res, dict):
-    if res.get("status") == "success":
-        res_action = res.get("action")
-        res_val = res.get("value")
-        
-        if res_action == "get":
-            if st.session_state.get("auth_loading", True):
-                correct_password = st.secrets.get("app_password", "")
-                if correct_password:
-                    correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
-                    if res_val == correct_hash:
-                        st.session_state["is_admin"] = True
-                        st.session_state["remember_me_persistent"] = True
-                    else:
-                        st.session_state["is_admin"] = False
-                st.session_state["auth_loading"] = False
+
+# Active sync check to write/clear token based on checkbox status when admin is logged in
+if st.session_state.get("is_admin"):
+    correct_password = st.secrets.get("app_password", "")
+    if correct_password:
+        correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
+        if st.session_state.get("remember_me_persistent"):
+            if st.session_state.get("local_storage_action") != "set" and res_val != correct_hash:
+                set_local_storage("admin_token", correct_hash)
                 st.rerun()
-        elif res_action == "set":
-            # Reset queue back to 'get' state
-            st.session_state["local_storage_action"] = "get"
-            st.session_state["local_storage_val"] = None
-            st.rerun()
-        elif res_action == "clear":
-            # Reset queue back to 'get' state
-            st.session_state["local_storage_action"] = "get"
-            st.session_state["local_storage_val"] = None
-            st.rerun()
-    else:
-        # If the component reports an error or unknown response, stop loading
-        if st.session_state.get("auth_loading", True):
-            st.session_state["auth_loading"] = False
-            st.rerun()
-
-# Wait condition: If authentication is still loading, show a loading spinner
-if st.session_state.get("auth_loading", True):
-    st.markdown("""
-        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; font-family: sans-serif; direction: rtl;">
-            <div style="text-align: center;">
-                <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 15px;"></div>
-                <p style="color: #666; font-size: 1.1rem;">אנא המתן, בודק חיבור...</p>
-            </div>
-            <style>
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        </div>
-    """, unsafe_allow_html=True)
-
-if not st.session_state.get("auth_loading", True):
-
-    # Active sync check to write/clear token based on checkbox status when admin is logged in
-    if st.session_state.get("is_admin"):
-        correct_password = st.secrets.get("app_password", "")
-        if correct_password:
-            correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
-            if st.session_state.get("remember_me_persistent"):
-                if st.session_state.get("local_storage_action") != "set" and res_val != correct_hash:
-                    set_local_storage("admin_token", correct_hash)
-                    st.rerun()
-            else:
-                if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
-                    clear_local_storage("admin_token")
-                    st.rerun()
-    else:
-        # If not logged in as admin, but local storage still holds a token, clear it
-        if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
-            clear_local_storage("admin_token")
-            st.rerun()
-
-    # ---------------------------------------------------------------------------
-    # Firebase connection (cached)
-    # ---------------------------------------------------------------------------
-    @st.cache_resource
-    def init_db():
-        return get_db()
-
-    db = init_db()
-
-    # ---------------------------------------------------------------------------
-    # State helpers & Fetch
-    # ---------------------------------------------------------------------------
-
-    @st.cache_data(ttl=86400)
-    def _fetch_all_records():
-        """Cached Firestore read — at most one round-trip per 24 hours per server instance.
-
-        On ResourceExhausted (429) the cache stores an empty DataFrame so the UI
-        stays alive with a warning rather than hard-crashing the app.
-
-        Call st.cache_data.clear() before load_data() whenever data is mutated.
-        """
-        try:
-            return record_store.get_all(init_db(), limit=None)
-        except ResourceExhausted:
-            _empty_cols = ["id", "sorting_key"] + record_store.FIELDS + record_store.EXTRA_FIELDS
-            return pd.DataFrame(columns=_empty_cols)
-
-    def load_data():
-        """Populate session state from the cache (or Firestore on first/post-mutation run)."""
-        t0 = time.time()
-        df = _fetch_all_records()
-        print(f"load_data: Loaded {len(df)} records in {time.time()-t0:.4f} seconds", flush=True)
-        st.session_state["df"] = df
-        st.session_state["_quota_exhausted"] = df.empty and "id" in df.columns
-        st.session_state["current_page"] = 0
-
-    def refresh():
-        load_data()
-
-    def reset_all_filters():
-        """Safe callback for the Reset button — runs before the script re-renders."""
-        st.session_state["search_input"] = ""
-        st.session_state["artist_select"] = []
-        st.session_state["letter_select"] = []
-        st.session_state["selected_artists"] = []
-        st.session_state["selected_letters"] = []
-        st.session_state["should_close_sidebar"] = True
-        load_data()
-
-    def on_artist_change():
-        st.session_state["selected_artists"] = st.session_state.get("artist_select", [])
-        st.session_state["should_close_sidebar"] = True
-
-    def on_letter_change():
-        st.session_state["selected_letters"] = st.session_state.get("letter_select", [])
-        st.session_state["should_close_sidebar"] = True
-
-    def on_remember_me_change():
-        st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
-
-    def set_admin():
-        """Callback: validate admin password and set is_admin flag."""
-        entered = st.session_state.get("admin_input", "")
-        correct = st.secrets.get("app_password", "")
-        is_correct = (entered == correct) and bool(correct)
-        st.session_state["is_admin"] = is_correct
-        if is_correct:
-            st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
-
-    if "df" not in st.session_state or "current_page" not in st.session_state:
-        load_data()
-
-    df = st.session_state["df"]
-
-    # Show a visible banner when the daily Firestore quota is exhausted so the
-    # app stays alive rather than crashing.  The banner auto-disappears once
-    # the quota resets and the cache is cleared.
-    if st.session_state.get("_quota_exhausted"):
-        st.warning(
-            "⚠️ מכסת הקריאות היומית של מסד הנתונים מוצתה (שגיאה 429). "
-            "הטבלה תוצג שוב אוטומטית לאחר איפוס המכסה (בדרך כלל חצות שעון פסיפיק). "
-            "אין צורך בפעולה נוספת.",
-            icon=None,
-        )
-
-
-
-    # ---------------------------------------------------------------------------
-    # Sidebar — Power Numbers & Filters (GLOBAL)
-    # ---------------------------------------------------------------------------
-
-    @st.dialog(" הגרלת תקליט")
-    def draw_record_dialog():
-        if df.empty:
-            st.warning("אין תקליטים בספרייה.")
-            return
-
-        if "spin_key" not in st.session_state:
-            st.session_state["spin_key"] = 0
-
-        # Draw a fresh record when opened
-        if st.session_state["drawn_record"] is None:
-            st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
-            st.session_state["drawn_at"] = time.time()
-
-        record   = st.session_state["drawn_record"]
-        raw_artist = record.get("artist") or ""
-        raw_name   = record.get("name")   or ""
-        artist = raw_artist if str(raw_artist).lower() not in ("", "none") else "לא ידוע"
-        name   = raw_name   if str(raw_name).lower()   not in ("", "none") else "לא ידוע"
-        spin_key = st.session_state["spin_key"]
-        vinyl_base64 = get_base64_of_bin_file('spinning_vinyl_asset.png')
-        vinyl_src = f"data:image/png;base64,{vinyl_base64}" if vinyl_base64 else ""
-
-        # If the animation has already completed, render final state instantly
-        # (avoids text disappearing on Streamlit's periodic reruns)
-        elapsed = time.time() - st.session_state.get("drawn_at", 0)
-        animation_done = elapsed > 4.9  # 4s spin + 0.8s ghost fade + buffer
-
-        if animation_done:
-            # Render static final state: ghost vinyl + visible text, no animation
-            st.markdown(
-                f"""
-                <style>
-                #vwrap-{spin_key} {{
-                    position: relative;
-                    width: min(220px, 80vw); height: min(220px, 80vw);
-                    margin: 1.2rem auto 0.8rem;
-                    pointer-events: none;   /* prevents hover repaints on entire block */
-                }}
-                #vwrap-{spin_key} .v-img {{
-                    width: 100%; height: 100%;
-                    border-radius: 50%; display: block; opacity: 0.25;
-                }}
-                #vwrap-{spin_key} .v-shine {{
-                    position: absolute;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    border-radius: 50%;
-                    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 20%, rgba(0,0,0,0.1) 60%, rgba(255,255,255,0.12) 80%, rgba(255,255,255,0) 100%);
-                    pointer-events: none;
-                    z-index: 2;
-                    opacity: 0.25;
-                }}
-                #vwrap-{spin_key} .v-top {{
-                    position: absolute; top: 9%; left: 0; right: 0;
-                    text-align: center;
-                    font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
-                    text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                    padding: 0 12%; line-height: 1.3;
-                    z-index: 3;
-                }}
-                #vwrap-{spin_key} .v-bottom {{
-                    position: absolute; bottom: 9%; left: 0; right: 0;
-                    text-align: center;
-                    font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
-                    text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                    padding: 0 12%; line-height: 1.3;
-                    z-index: 3;
-                }}
-                </style>
-                <div id="vwrap-{spin_key}">
-                    <img class="v-img" src="{vinyl_src}" alt="vinyl" />
-                    <div class="v-shine"></div>
-                    <div class="v-top">{name}</div>
-                    <div class="v-bottom">{artist}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
         else:
-            # Full animation sequence
-            st.markdown(
-                f"""
-                <style>
-                @keyframes vinylDecel-{spin_key} {{
-                    0%   {{ transform: rotate(0deg); }}
-                    100% {{ transform: rotate(1080deg); }}
-                }}
-                @keyframes vinylGhost-{spin_key} {{
-                    from {{ opacity: 1; }}
-                    to   {{ opacity: 0.25; }}
-                }}
-                @keyframes popIn-{spin_key} {{
-                    from {{ opacity: 0; }}
-                    to   {{ opacity: 1; }}
-                }}
-                #vwrap-{spin_key} {{
-                    position: relative;
-                    width: min(220px, 80vw); height: min(220px, 80vw);
-                    margin: 1.2rem auto 0.8rem;
-                    pointer-events: none;   /* prevents hover repaints that restart animation fill */
-                }}
-                #vwrap-{spin_key} .v-img {{
-                    width: 100%; height: 100%;
-                    border-radius: 50%; display: block;
-                    animation:
-                        vinylDecel-{spin_key} 4s  cubic-bezier(0.05, 0, 0.3, 1) forwards,
-                        vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
-                }}
-                #vwrap-{spin_key} .v-shine {{
-                    position: absolute;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    border-radius: 50%;
-                    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 20%, rgba(0,0,0,0.1) 60%, rgba(255,255,255,0.12) 80%, rgba(255,255,255,0) 100%);
-                    pointer-events: none;
-                    z-index: 2;
-                    animation: vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
-                }}
-                #vwrap-{spin_key} .v-top {{
-                    position: absolute; top: 9%; left: 0; right: 0;
-                    text-align: center; opacity: 0;
-                    animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
-                    will-change: opacity;   /* isolates layer, prevents hover repaint reset */
-                    font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
-                    text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                    padding: 0 12%; line-height: 1.3;
-                    z-index: 3;
-                }}
-                #vwrap-{spin_key} .v-bottom {{
-                    position: absolute; bottom: 9%; left: 0; right: 0;
-                    text-align: center; opacity: 0;
-                    animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
-                    will-change: opacity;   /* isolates layer, prevents hover repaint reset */
-                    font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
-                    text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
-                    padding: 0 12%; line-height: 1.3;
-                    z-index: 3;
-                }}
-                </style>
-                <div id="vwrap-{spin_key}">
-                    <img class="v-img" src="{vinyl_src}" alt="vinyl" />
-                    <div class="v-shine"></div>
-                    <div class="v-top">{name}</div>
-                    <div class="v-bottom">{artist}</div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-        col_spin, col_close = st.columns(2)
-        with col_spin:
-            if st.button("סובב שוב", use_container_width=True):
-                st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
-                st.session_state["spin_key"] = spin_key + 1
-                st.session_state["drawn_at"] = time.time()
-                st.rerun()  # safe: dialog_open=True keeps dialog alive on rerun
-        with col_close:
-            if st.button("✕ סגור", use_container_width=True):
-                st.session_state["drawn_record"] = None
-                st.session_state["dialog_open"] = False
-                st.rerun()
-
-    # ---------------------------------------------------------------------------
-    # Apply Global Filters to working dataset
-    # ---------------------------------------------------------------------------
-
-    filtered_df = df.copy()
-
-    sq = st.session_state["search_input"]
-    if sq:
-        q = sq.lower()
-        mask = filtered_df.apply(
-            lambda row: q in str(row.get("artist", "")).lower() or 
-                        q in str(row.get("name", "")).lower() or 
-                        q in str(row.get("notes", "")).lower(), 
-            axis=1
-        )
-        filtered_df = filtered_df[mask]
-
-    if st.session_state["selected_artists"]:
-        filtered_df = filtered_df[filtered_df["artist"].isin(st.session_state["selected_artists"])]
-
-    if st.session_state["selected_letters"]:
-        filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["selected_letters"])]
-
-    total_filtered_records = len(filtered_df)
-    MAX_PAGE = max(0, (total_filtered_records - 1) // 50)
-    if st.session_state["current_page"] > MAX_PAGE:
-        st.session_state["current_page"] = MAX_PAGE
-
-    with st.sidebar:
-        # ── Admin Login/Session Block (very top) ────────────────────
-        if not st.session_state["is_admin"]:
-            st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session", on_change=on_remember_me_change, value=st.session_state.get("remember_me_persistent", False))
-            st.text_input(
-                "🔐 כניסת מנהל",
-                type="password",
-                key="admin_input",
-                on_change=set_admin,
-                placeholder="סיסמת מנהל...",
-                label_visibility="collapsed",
-            )
-        else:
-            st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0 0 0.5rem;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
-            if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
-                st.session_state["is_admin"] = False
-                st.session_state["admin_input"] = ""
-                st.session_state["remember_me_persistent"] = False
-                if "remember_admin_session" in st.session_state:
-                    st.session_state["remember_admin_session"] = False
+            if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
                 clear_local_storage("admin_token")
                 st.rerun()
+else:
+    # If not logged in as admin, but local storage still holds a token, clear it
+    if st.session_state.get("local_storage_action") != "clear" and res_val is not None:
+        clear_local_storage("admin_token")
+        st.rerun()
 
-        st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
+# ---------------------------------------------------------------------------
+# Firebase connection (cached)
+# ---------------------------------------------------------------------------
+@st.cache_resource
+def init_db():
+    return get_db()
 
-        # ── נתונים ──────────────────────────────────────────────────
-        st.markdown('<h3 style="text-align: right; margin-top: 0;"><i class="fas fa-layer-group"></i> נתונים</h3>', unsafe_allow_html=True)
-    
-        total_records = len(df)
-        total_artists = df["artist"].nunique() if not df.empty else 0
+db = init_db()
 
+# ---------------------------------------------------------------------------
+# State helpers & Fetch
+# ---------------------------------------------------------------------------
+
+@st.cache_data(ttl=86400)
+def _fetch_all_records():
+    """Cached Firestore read — at most one round-trip per 24 hours per server instance.
+
+    On ResourceExhausted (429) the cache stores an empty DataFrame so the UI
+    stays alive with a warning rather than hard-crashing the app.
+
+    Call st.cache_data.clear() before load_data() whenever data is mutated.
+    """
+    try:
+        return record_store.get_all(init_db(), limit=None)
+    except ResourceExhausted:
+        _empty_cols = ["id", "sorting_key"] + record_store.FIELDS + record_store.EXTRA_FIELDS
+        return pd.DataFrame(columns=_empty_cols)
+
+def load_data():
+    """Populate session state from the cache (or Firestore on first/post-mutation run)."""
+    t0 = time.time()
+    df = _fetch_all_records()
+    print(f"load_data: Loaded {len(df)} records in {time.time()-t0:.4f} seconds", flush=True)
+    st.session_state["df"] = df
+    st.session_state["_quota_exhausted"] = df.empty and "id" in df.columns
+    st.session_state["current_page"] = 0
+
+def refresh():
+    load_data()
+
+def reset_all_filters():
+    """Safe callback for the Reset button — runs before the script re-renders."""
+    st.session_state["search_input"] = ""
+    st.session_state["artist_select"] = []
+    st.session_state["letter_select"] = []
+    st.session_state["selected_artists"] = []
+    st.session_state["selected_letters"] = []
+    st.session_state["should_close_sidebar"] = True
+    load_data()
+
+def on_artist_change():
+    st.session_state["selected_artists"] = st.session_state.get("artist_select", [])
+    st.session_state["should_close_sidebar"] = True
+
+def on_letter_change():
+    st.session_state["selected_letters"] = st.session_state.get("letter_select", [])
+    st.session_state["should_close_sidebar"] = True
+
+def on_remember_me_change():
+    st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
+
+def set_admin():
+    """Callback: validate admin password and set is_admin flag."""
+    entered = st.session_state.get("admin_input", "")
+    correct = st.secrets.get("app_password", "")
+    is_correct = (entered == correct) and bool(correct)
+    st.session_state["is_admin"] = is_correct
+    if is_correct:
+        st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
+
+if "df" not in st.session_state or "current_page" not in st.session_state:
+    load_data()
+
+df = st.session_state["df"]
+
+# Show a visible banner when the daily Firestore quota is exhausted so the
+# app stays alive rather than crashing.  The banner auto-disappears once
+# the quota resets and the cache is cleared.
+if st.session_state.get("_quota_exhausted"):
+    st.warning(
+        "⚠️ מכסת הקריאות היומית של מסד הנתונים מוצתה (שגיאה 429). "
+        "הטבלה תוצג שוב אוטומטית לאחר איפוס המכסה (בדרך כלל חצות שעון פסיפיק). "
+        "אין צורך בפעולה נוספת.",
+        icon=None,
+    )
+
+
+
+# ---------------------------------------------------------------------------
+# Sidebar — Power Numbers & Filters (GLOBAL)
+# ---------------------------------------------------------------------------
+
+@st.dialog(" הגרלת תקליט")
+def draw_record_dialog():
+    if df.empty:
+        st.warning("אין תקליטים בספרייה.")
+        return
+
+    if "spin_key" not in st.session_state:
+        st.session_state["spin_key"] = 0
+
+    # Draw a fresh record when opened
+    if st.session_state["drawn_record"] is None:
+        st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
+        st.session_state["drawn_at"] = time.time()
+
+    record   = st.session_state["drawn_record"]
+    raw_artist = record.get("artist") or ""
+    raw_name   = record.get("name")   or ""
+    artist = raw_artist if str(raw_artist).lower() not in ("", "none") else "לא ידוע"
+    name   = raw_name   if str(raw_name).lower()   not in ("", "none") else "לא ידוע"
+    spin_key = st.session_state["spin_key"]
+    vinyl_base64 = get_base64_of_bin_file('spinning_vinyl_asset.png')
+    vinyl_src = f"data:image/png;base64,{vinyl_base64}" if vinyl_base64 else ""
+
+    # If the animation has already completed, render final state instantly
+    # (avoids text disappearing on Streamlit's periodic reruns)
+    elapsed = time.time() - st.session_state.get("drawn_at", 0)
+    animation_done = elapsed > 4.9  # 4s spin + 0.8s ghost fade + buffer
+
+    if animation_done:
+        # Render static final state: ghost vinyl + visible text, no animation
         st.markdown(
             f"""
-            <div class="sidebar-stats">
-                <div class="sidebar-stat-card">
-                    <span class="label">סה״כ תקליטים</span>
-                    <span class="num">{total_records}</span>
-                </div>
-                <div class="sidebar-stat-card">
-                    <span class="label">סה״כ אמנים</span>
-                    <span class="num">{total_artists}</span>
-                </div>
+            <style>
+            #vwrap-{spin_key} {{
+                position: relative;
+                width: min(220px, 80vw); height: min(220px, 80vw);
+                margin: 1.2rem auto 0.8rem;
+                pointer-events: none;   /* prevents hover repaints on entire block */
+            }}
+            #vwrap-{spin_key} .v-img {{
+                width: 100%; height: 100%;
+                border-radius: 50%; display: block; opacity: 0.25;
+            }}
+            #vwrap-{spin_key} .v-shine {{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                border-radius: 50%;
+                background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 20%, rgba(0,0,0,0.1) 60%, rgba(255,255,255,0.12) 80%, rgba(255,255,255,0) 100%);
+                pointer-events: none;
+                z-index: 2;
+                opacity: 0.25;
+            }}
+            #vwrap-{spin_key} .v-top {{
+                position: absolute; top: 9%; left: 0; right: 0;
+                text-align: center;
+                font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
+                text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding: 0 12%; line-height: 1.3;
+                z-index: 3;
+            }}
+            #vwrap-{spin_key} .v-bottom {{
+                position: absolute; bottom: 9%; left: 0; right: 0;
+                text-align: center;
+                font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
+                text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding: 0 12%; line-height: 1.3;
+                z-index: 3;
+            }}
+            </style>
+            <div id="vwrap-{spin_key}">
+                <img class="v-img" src="{vinyl_src}" alt="vinyl" />
+                <div class="v-shine"></div>
+                <div class="v-top">{name}</div>
+                <div class="v-bottom">{artist}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        # Full animation sequence
+        st.markdown(
+            f"""
+            <style>
+            @keyframes vinylDecel-{spin_key} {{
+                0%   {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(1080deg); }}
+            }}
+            @keyframes vinylGhost-{spin_key} {{
+                from {{ opacity: 1; }}
+                to   {{ opacity: 0.25; }}
+            }}
+            @keyframes popIn-{spin_key} {{
+                from {{ opacity: 0; }}
+                to   {{ opacity: 1; }}
+            }}
+            #vwrap-{spin_key} {{
+                position: relative;
+                width: min(220px, 80vw); height: min(220px, 80vw);
+                margin: 1.2rem auto 0.8rem;
+                pointer-events: none;   /* prevents hover repaints that restart animation fill */
+            }}
+            #vwrap-{spin_key} .v-img {{
+                width: 100%; height: 100%;
+                border-radius: 50%; display: block;
+                animation:
+                    vinylDecel-{spin_key} 4s  cubic-bezier(0.05, 0, 0.3, 1) forwards,
+                    vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
+            }}
+            #vwrap-{spin_key} .v-shine {{
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                border-radius: 50%;
+                background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 20%, rgba(0,0,0,0.1) 60%, rgba(255,255,255,0.12) 80%, rgba(255,255,255,0) 100%);
+                pointer-events: none;
+                z-index: 2;
+                animation: vinylGhost-{spin_key} 0.8s ease-in 4s forwards;
+            }}
+            #vwrap-{spin_key} .v-top {{
+                position: absolute; top: 9%; left: 0; right: 0;
+                text-align: center; opacity: 0;
+                animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
+                will-change: opacity;   /* isolates layer, prevents hover repaint reset */
+                font-size: clamp(0.75rem, 4vw, 1.1rem); font-weight: 900; color: #ffffff;
+                text-shadow: 0 2px 8px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding: 0 12%; line-height: 1.3;
+                z-index: 3;
+            }}
+            #vwrap-{spin_key} .v-bottom {{
+                position: absolute; bottom: 9%; left: 0; right: 0;
+                text-align: center; opacity: 0;
+                animation: popIn-{spin_key} 0.01s steps(1, end) 4.8s forwards;
+                will-change: opacity;   /* isolates layer, prevents hover repaint reset */
+                font-size: clamp(0.65rem, 3.5vw, 0.95rem); font-weight: 800; color: #f0f0f0;
+                text-shadow: 0 2px 6px rgba(0,0,0,0.95), 0 0px 2px rgba(0,0,0,1);
+                padding: 0 12%; line-height: 1.3;
+                z-index: 3;
+            }}
+            </style>
+            <div id="vwrap-{spin_key}">
+                <img class="v-img" src="{vinyl_src}" alt="vinyl" />
+                <div class="v-shine"></div>
+                <div class="v-top">{name}</div>
+                <div class="v-bottom">{artist}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        # --- Draw Record Button (Lucky Draw) ---
-        st.markdown('<div style="margin: 0.5rem 0;">', unsafe_allow_html=True)
-        if st.button(" הגרל תקליט", use_container_width=True):
+    col_spin, col_close = st.columns(2)
+    with col_spin:
+        if st.button("סובב שוב", use_container_width=True):
+            st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
+            st.session_state["spin_key"] = spin_key + 1
+            st.session_state["drawn_at"] = time.time()
+            st.rerun()  # safe: dialog_open=True keeps dialog alive on rerun
+    with col_close:
+        if st.button("✕ סגור", use_container_width=True):
             st.session_state["drawn_record"] = None
-            st.session_state["spin_key"] = 0
-            st.session_state["drawn_at"] = 0.0
-            st.session_state["dialog_open"] = True
-            st.session_state["should_close_sidebar"] = True
+            st.session_state["dialog_open"] = False
             st.rerun()
-        st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
+# ---------------------------------------------------------------------------
+# Apply Global Filters to working dataset
+# ---------------------------------------------------------------------------
 
-        # ── חיפוש ──────────────────────────────────────────────────
-        st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> חיפוש</h3>', unsafe_allow_html=True)
+filtered_df = df.copy()
 
-        st.text_input("חיפוש חופשי", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input", label_visibility="collapsed")
+sq = st.session_state["search_input"]
+if sq:
+    q = sq.lower()
+    mask = filtered_df.apply(
+        lambda row: q in str(row.get("artist", "")).lower() or 
+                    q in str(row.get("name", "")).lower() or 
+                    q in str(row.get("notes", "")).lower(), 
+        axis=1
+    )
+    filtered_df = filtered_df[mask]
 
-        # ── סנן לפי אמן/אות (Segmented Control) ──────────────────────
-        filter_type = st.segmented_control(
-            "סנן לפי אמן/אות",
-            options=["אמן", "אות"],
-            default="אמן",
-            label_visibility="visible"
+if st.session_state["selected_artists"]:
+    filtered_df = filtered_df[filtered_df["artist"].isin(st.session_state["selected_artists"])]
+
+if st.session_state["selected_letters"]:
+    filtered_df = filtered_df[filtered_df["id_letter"].isin(st.session_state["selected_letters"])]
+
+total_filtered_records = len(filtered_df)
+MAX_PAGE = max(0, (total_filtered_records - 1) // 50)
+if st.session_state["current_page"] > MAX_PAGE:
+    st.session_state["current_page"] = MAX_PAGE
+
+with st.sidebar:
+    # ── Admin Login/Session Block (very top) ────────────────────
+    if not st.session_state["is_admin"]:
+        st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session", on_change=on_remember_me_change, value=st.session_state.get("remember_me_persistent", False))
+        st.text_input(
+            "🔐 כניסת מנהל",
+            type="password",
+            key="admin_input",
+            on_change=set_admin,
+            placeholder="סיסמת מנהל...",
+            label_visibility="collapsed",
         )
-        if filter_type is None:
-            filter_type = "אמן"
-
-        artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
-        letters = sorted(df["id_letter"].dropna().unique()) if not df.empty else []
-
-        if filter_type == "אמן":
-            st.multiselect(
-                "סנן לפי אמן",
-                artists,
-                key="artist_select",
-                default=st.session_state["selected_artists"],
-                on_change=on_artist_change
-            )
-        else:
-            st.multiselect(
-                "סנן לפי אות",
-                letters,
-                key="letter_select",
-                default=st.session_state["selected_letters"],
-                on_change=on_letter_change
-            )
-
-        # Reset Button — uses on_click callback to avoid StreamlitAPIException
-        st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
-        st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
-
-        # ── Debug Session Logs ──────────────────────────────────────
-        st.markdown("<hr style='margin: 1rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
-        st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:var(--color-text-muted); margin:0 0 0.2rem;'>🔧 דיאגנוסטיקה: Remember Me</p>", unsafe_allow_html=True)
-        st.write({
-            "is_admin": st.session_state.get("is_admin"),
-            "auth_loading": st.session_state.get("auth_loading"),
-            "remember_me_checked": st.session_state.get("remember_me_persistent"),
-            "localStorage_action": st.session_state.get("local_storage_action"),
-            "token_retrieved": "Yes (hash matches)" if st.session_state.get("is_admin") else "No / Not loaded yet"
-        })
-
-        # Auto-close drawer JS injection on filter selection (mobile only)
-        if st.session_state.get("should_close_sidebar"):
-            st.session_state["should_close_sidebar"] = False
-            components.html(
-                """
-                <script>
-                const parentDoc = window.parent.document;
-                const sidebar = parentDoc.querySelector('[data-testid="stSidebar"]');
-                const collapseBtn = parentDoc.querySelector('[data-testid="stSidebarCollapseButton"] button');
-                const isMobile = window.parent.innerWidth < 768;
-                if (isMobile && sidebar && sidebar.getAttribute('data-collapsed') !== 'true' && collapseBtn) {
-                    collapseBtn.click();
-                }
-                </script>
-                """,
-                height=0,
-                width=0,
-            )
-
-    # Global filters applied above sidebar block
-
-
-    # ---------------------------------------------------------------------------
-    # Album detail popup — triggered by table row clicks
-    # ---------------------------------------------------------------------------
-
-    @st.dialog("🎧 פרטי האלבום")
-    def show_record_detail(record: dict) -> None:
-        """
-        Modular record detail popup.  Called with a full record dict
-        (including image_url / image_synced if available).
-        """
-        import re
-        import urllib.parse
-        import pandas as pd
-
-        try:
-            if not isinstance(record, dict):
-                st.error("לא ניתן להציג פרטים עבור רשומה זו.")
-                return
-
-            def safe_str(val) -> str:
-                if val is None:
-                    return ""
-                if isinstance(val, float) and pd.isna(val):
-                    return ""
-                return str(val).strip()
-
-            # Clean all input values safely
-            image_raw = record.get("image_url")
-            image_url = safe_str(image_raw)
-            if not image_url:
-                image_url = None
-
-            artist     = safe_str(record.get("artist")) or "לא ידוע"
-            name       = safe_str(record.get("name")) or "לא ידוע"
-            id_letter  = safe_str(record.get("id_letter"))
-            notes      = safe_str(record.get("notes"))
-        
-            # Handle box safely
-            box_val = record.get("box")
-            if box_val is None or (isinstance(box_val, float) and pd.isna(box_val)):
-                box = "לא ידוע"
-            else:
-                try:
-                    box = str(int(float(box_val)))
-                except Exception:
-                    box = str(box_val)
-
-            # Convert standard Drive export URL to Google User Content direct image URL for reliable hotlinking
-            if image_url and "drive.google.com" in image_url:
-                try:
-                    parsed = urllib.parse.urlparse(image_url)
-                    qs = urllib.parse.parse_qs(parsed.query)
-                    file_id = qs.get("id", [None])[0]
-                    if file_id:
-                        image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
-                except Exception:
-                    pass
-
-            # ── Album cover ────────────────────────────────────────────────────────
-            if image_url:
-                try:
-                    col_img_left, col_img_center, col_img_right = st.columns([1, 2, 1])
-                    with col_img_center:
-                        st.image(image_url, width=180)
-                except Exception:
-                    st.info("לא קיימת תמונה לרשומה זו")
-            else:
-                st.info("לא קיימת תמונה לרשומה זו")
-
-            # ── Metadata ───────────────────────────────────────────────────────────
-            location = f"קופסא {box}"
-            if id_letter:
-                location += f" &nbsp;•&nbsp; אות {id_letter}"
-
-            st.markdown(
-                f"""
-                <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
-                    <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
-                    <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
-                    <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
-                    {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-
-            st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
-            if st.button("✕ סגור", use_container_width=True):
-                st.session_state["detail_record"] = None
-                st.rerun()
-
-        except Exception as e:
-            st.error("ארעה שגיאה בהצגת פרטי האלבום.")
-            st.caption(f"שגיאה: {e}")
-            if st.button("✕ סגור", key="detail_err_close", use_container_width=True):
-                st.session_state["detail_record"] = None
-                st.rerun()
-
-
-    # ---------------------------------------------------------------------------
-    # Add record dialog
-    # ---------------------------------------------------------------------------
-    @st.dialog("הוספת תקליט חדש")
-    def add_record_dialog():
-        if not st.session_state.get("is_admin", False):
-            st.error("גישה נדחתה. עליך להתחבר כמנהל.")
-            return
-        with st.form("add_form", clear_on_submit=True):
-            st.markdown("<p style='font-size: 0.85rem; color: #666;'>השדות המסומנים ב-* הינם חובה.</p>", unsafe_allow_html=True)
-            new_artist = st.text_input("שם אומן *")
-            new_name = st.text_input("שם התקליט *")
-            new_notes = st.text_input("הערות נוספות")
-            new_image_url = st.text_input("כתובת תמונת עטיפה (אופציונלי)", placeholder="https://i.discogs.com/...")
-            col_box, col_letter = st.columns(2)
-            with col_box:
-                new_box = st.number_input("קופסא", min_value=1, step=1, value=1)
-            with col_letter:
-                new_id_letter = st.text_input("אות", max_chars=1)
-
-            submitted = st.form_submit_button("הוסף", type="primary", use_container_width=True)
-            if submitted:
-                if not new_artist or not new_name:
-                    st.error("אנא מלא את השדות החובה.")
-                else:
-                    new_doc_id = record_store.add(db, {
-                        "box": int(new_box),
-                        "id_letter": new_id_letter.strip(),
-                        "artist": new_artist.strip(),
-                        "name": new_name.strip(),
-                        "notes": new_notes.strip(),
-                        "image_url": new_image_url.strip() or None,
-                        "image_synced": False,
-                    })
-                    st.cache_data.clear()  # Invalidate cache so next read hits Firestore
-                    load_data()
-                    # --- Audit log operation ---
-                    try:
-                        from audit_logger import log_mutation
-                        log_mutation(
-                            action_type="ADD",
-                            record_id=new_doc_id,
-                            artist=new_artist.strip(),
-                            album=new_name.strip(),
-                            notes=f"Added record: Box {new_box}, Notes: {new_notes.strip()}",
-                            firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                        )
-                    except Exception as e:
-                        print(f"Audit Log Integration Error (ADD): {e}", flush=True)
-                    # --- Auto-sync cover image to Drive ---
-                    if new_image_url.strip():
-                        with st.spinner("מוריד תמונת עטיפה..."):
-                            try:
-                                from drive_backup import build_drive_service
-                                from image_sync import sync_single_record
-                                drive_svc = build_drive_service(dict(st.secrets["firebase"]))
-                                covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
-                                if covers_folder_id:
-                                    sync_single_record(db, drive_svc, new_doc_id, new_image_url.strip(), covers_folder_id)
-                                    st.cache_data.clear()  # Refresh after image URL update
-                                    load_data()
-                            except Exception:
-                                pass  # Image sync failure is non-fatal
-                    # --- Auto-backup to Google Drive (background task) ---
-                    if st.secrets.get("enable_backup", True):
-                        try:
-                            from auto_backup import rotate_and_backup
-                            firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                            threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
-                        except Exception as e:
-                            print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
-                    else:
-                        print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
-                    st.rerun()
-
-    @st.dialog("מחיקת תקליט")
-    def delete_record_dialog():
-        if not st.session_state.get("is_admin", False):
-            st.error("גישה נדחתה. עליך להתחבר כמנהל.")
-            return
-        if filtered_df.empty:
-             st.warning("אין תקליטים לחיתוך זה.")
-             return
-        delete_options = {
-            f"{row['artist']} — {row['name']}": row["id"]
-            for _, row in filtered_df.iterrows()
-        }
-        selected_delete = st.selectbox("בחר תקליט", list(delete_options.keys()))
-        if st.button("מחק סופית", type="primary", use_container_width=True):
-            selected_id = delete_options[selected_delete]
-            selected_row = filtered_df[filtered_df["id"] == selected_id]
-            if not selected_row.empty:
-                del_artist = selected_row.iloc[0].get("artist", "")
-                del_name = selected_row.iloc[0].get("name", "")
-                del_notes = selected_row.iloc[0].get("notes", "")
-            else:
-                del_artist = ""
-                del_name = ""
-                del_notes = ""
-
-            record_store.delete(db, selected_id)
-            st.cache_data.clear()  # Invalidate cache so next read hits Firestore
-            load_data()
-        
-            # --- Audit log operation ---
-            try:
-                from audit_logger import log_mutation
-                log_mutation(
-                    action_type="DELETE",
-                    record_id=selected_id,
-                    artist=del_artist,
-                    album=del_name,
-                    notes=f"Deleted record. Previous notes: {del_notes}",
-                    firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                )
-            except Exception as e:
-                print(f"Audit Log Integration Error (DELETE): {e}", flush=True)
-            # --- Auto-backup to Google Drive (background task) ---
-            if st.secrets.get("enable_backup", True):
-                try:
-                    from auto_backup import rotate_and_backup
-                    firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                    threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
-                except Exception as e:
-                    print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
-            else:
-                print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
+    else:
+        st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0 0 0.5rem;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
+        if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
+            st.session_state["is_admin"] = False
+            st.session_state["admin_input"] = ""
+            st.session_state["remember_me_persistent"] = False
+            if "remember_admin_session" in st.session_state:
+                st.session_state["remember_admin_session"] = False
+            clear_local_storage("admin_token")
             st.rerun()
 
-    @st.dialog("עדכון תקליט")
-    def update_record_dialog():
-        if not st.session_state.get("is_admin", False):
-            st.error("גישה נדחתה. עליך להתחבר כמנהל.")
-            return
-        if df.empty:
-            st.warning("אין נתונים במסד.")
-            return
-        
-        update_options = {
-            f"{row['artist']} — {row['name']} (קופסא {row['box']})": row
-            for _, row in df.iterrows()
-        }
-    
-        selected_key = st.selectbox("חפש ובחר רשומה לעדכון:", list(update_options.keys()))
-        selected_record = update_options[selected_key]
-    
-        with st.form("update_form"):
-            st.markdown("<p style='font-size: 0.85rem; color: var(--color-text-muted);'>שנה את השדות הרצויים ולחץ על אישור לשמירה.</p>", unsafe_allow_html=True)
-        
-            updated_artist = st.text_input("אמן *", value=selected_record.get("artist", ""))
-            updated_name = st.text_input("שם התקליט *", value=selected_record.get("name", ""))
-            updated_notes = st.text_input("הערות נוספות", value=selected_record.get("notes", ""))
-            updated_image_url = st.text_input(
-                "כתובת תמונת עטיפה (אופציונלי)",
-                value=selected_record.get("image_url") or "",
-                placeholder="https://i.discogs.com/...",
-            )
-        
-            col_box, col_letter = st.columns(2)
-            with col_box:
-                updated_box = st.number_input("קופסא", min_value=1, step=1, value=int(selected_record.get("box", 1)))
-            with col_letter:
-                updated_letter = st.text_input("אות (אופציונלי)", max_chars=1, value=selected_record.get("id_letter", ""))
-            
-            submitted = st.form_submit_button("אישור", type="primary", use_container_width=True)
-            if submitted:
-                if not updated_artist or not updated_name:
-                    st.error("אנא מלא את השדות החובה (אמן, שם התקליט).")
-                else:
-                    changes = {
-                        "artist": updated_artist.strip(),
-                        "name": updated_name.strip(),
-                        "notes": updated_notes.strip(),
-                        "box": int(updated_box),
-                    }
-                    # Only update id_letter if explicitly provided
-                    if updated_letter.strip():
-                         changes["id_letter"] = updated_letter.strip()
-                    # Update image_url if changed; mark as un-synced so bulk sync will re-process
-                    new_raw_url = updated_image_url.strip()
-                    old_raw_url = (selected_record.get("image_url") or "").strip()
-                    if new_raw_url != old_raw_url:
-                        changes["image_url"] = new_raw_url or None
-                        changes["image_synced"] = False
-                     
-                    record_store.update(db, selected_record["id"], changes)
-                    st.success("הרשומה עודכנה בהצלחה!")
-                    time.sleep(0.8)
-                    st.cache_data.clear()  # Invalidate cache so next read hits Firestore
-                    load_data()
-                    # --- Audit log operation ---
-                    try:
-                        changed_fields = []
-                        for k, v in changes.items():
-                            old_val = selected_record.get(k)
-                            if str(old_val).strip() != str(v).strip():
-                                changed_fields.append(f"{k}: '{old_val}' -> '{v}'")
-                        notes_desc = "Updated fields: " + ", ".join(changed_fields) if changed_fields else "No fields changed"
-                    
-                        from audit_logger import log_mutation
-                        log_mutation(
-                            action_type="EDIT",
-                            record_id=selected_record["id"],
-                            artist=updated_artist.strip(),
-                            album=updated_name.strip(),
-                            notes=notes_desc,
-                            firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                        )
-                    except Exception as e:
-                        print(f"Audit Log Integration Error (EDIT): {e}", flush=True)
-                    # --- Auto-sync updated cover image to Drive ---
-                    if new_raw_url and new_raw_url != old_raw_url:
-                        with st.spinner("מוריד תמונת עטיפה..."):
-                            try:
-                                from drive_backup import build_drive_service
-                                from image_sync import sync_single_record
-                                drive_svc = build_drive_service(dict(st.secrets["firebase"]))
-                                covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
-                                if covers_folder_id:
-                                    sync_single_record(db, drive_svc, selected_record["id"], new_raw_url, covers_folder_id)
-                                    st.cache_data.clear()
-                                    load_data()
-                            except Exception:
-                                pass  # Image sync failure is non-fatal
-                    # --- Auto-backup to Google Drive (background task) ---
-                    if st.secrets.get("enable_backup", True):
-                        try:
-                            from auto_backup import rotate_and_backup
-                            firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                            threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
-                        except Exception as e:
-                            print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
-                    else:
-                        print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
-                    st.rerun()
+    st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
-    @st.dialog("העלאת קובץ")
-    def upload_csv_dialog():
-        if not st.session_state.get("is_admin", False):
-            st.error("גישה נדחתה. עליך להתחבר כמנהל.")
-            return
-        st.info("כלי העלאת CSV כרגע לא פעיל בממשק.")
+    # ── נתונים ──────────────────────────────────────────────────
+    st.markdown('<h3 style="text-align: right; margin-top: 0;"><i class="fas fa-layer-group"></i> נתונים</h3>', unsafe_allow_html=True)
 
-    # ---------------------------------------------------------------------------
-    # Invoke dialogs at top level so st.rerun() inside them keeps them alive
-    # ---------------------------------------------------------------------------
-    if st.session_state.get("dialog_open", False):
-        draw_record_dialog()
+    total_records = len(df)
+    total_artists = df["artist"].nunique() if not df.empty else 0
 
-    if st.session_state.get("detail_record") is not None:
-        show_record_detail(st.session_state["detail_record"])
-        st.session_state["detail_record"] = None
-
-    # Main Layout
-    # ---------------------------------------------------------------------------
-
-    # Update Sidebar explicitly referencing the Current View (Density)
-    st.sidebar.markdown(
+    st.markdown(
         f"""
-        <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: -10px;">
-            <span class="label">שורות בתצוגה (אחרי סינון)</span>
-            <span class="num">{total_filtered_records}</span>
+        <div class="sidebar-stats">
+            <div class="sidebar-stat-card">
+                <span class="label">סה״כ תקליטים</span>
+                <span class="num">{total_records}</span>
+            </div>
+            <div class="sidebar-stat-card">
+                <span class="label">סה״כ אמנים</span>
+                <span class="num">{total_artists}</span>
+            </div>
         </div>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
 
-    # Row 1: Brand (Title centered, Logo on left)
-    with st.container():
-        st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
-        header_html = f"""
-        <div class="brand-row-container">
-            <div class="brand-logo-desktop">
-                <img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;">
-            </div>
-            <div class="brand-row-center">
-                <div class="main-header">
-                    <h1>אוסף התקליטים של ירון</h1>
-                </div>
-            </div>
-            <div class="brand-spacer"></div>
-        </div>
-        """
-        st.markdown(header_html, unsafe_allow_html=True)
+    # --- Draw Record Button (Lucky Draw) ---
+    st.markdown('<div style="margin: 0.5rem 0;">', unsafe_allow_html=True)
+    if st.button(" הגרל תקליט", use_container_width=True):
+        st.session_state["drawn_record"] = None
+        st.session_state["spin_key"] = 0
+        st.session_state["drawn_at"] = 0.0
+        st.session_state["dialog_open"] = True
+        st.session_state["should_close_sidebar"] = True
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
+    st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
+    # ── חיפוש ──────────────────────────────────────────────────
+    st.markdown('<h3 style="text-align: right; margin-top: 0.5rem;"><i class="fas fa-search"></i> חיפוש</h3>', unsafe_allow_html=True)
 
-    # Row 3: Action Toolbar — admin-only
-    if st.session_state.get("is_admin", False):
-        with st.container():
-            st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
-            if st.button("הוסף רשומה"):
-                add_record_dialog()
-            if st.button("מחק רשומה"):
-                delete_record_dialog()
-            if st.button("עדכון רשומה"):
-                update_record_dialog()
-            if st.button("העלאת קובץ"):
-                upload_csv_dialog()
+    st.text_input("חיפוש חופשי", placeholder="חיפוש חופשי (אמן, אלבום, הערות)...", key="search_input", label_visibility="collapsed")
 
-            csv_data = df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="⬇️",
-                data=csv_data,
-                file_name="records_backup.csv",
-                mime="text/csv"
-            )
+    # ── סנן לפי אמן/אות (Segmented Control) ──────────────────────
+    filter_type = st.segmented_control(
+        "סנן לפי אמן/אות",
+        options=["אמן", "אות"],
+        default="אמן",
+        label_visibility="visible"
+    )
+    if filter_type is None:
+        filter_type = "אמן"
 
-    # Row 4: Data Info & Checkbox (Table Controls Line)
-    with st.container():
-        st.markdown('<div id="table-controls-anchor"></div>', unsafe_allow_html=True)
-        st.markdown(f'<p style="font-size:0.8rem; color: #64748b;font-weight:600; margin:0;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p>', unsafe_allow_html=True)
-        show_box = st.checkbox("הצג עמודת קופסא", value=False)
+    artists = sorted(df["artist"].dropna().unique()) if not df.empty else []
+    letters = sorted(df["id_letter"].dropna().unique()) if not df.empty else []
 
-    # Display Sub-Count neatly above table
-    # Redundant line removed to avoid duplication with Row 4
-
-    # ---------------------------------------------------------------------------
-    # Minimalist Table Interface (index hidden)
-    # ---------------------------------------------------------------------------
-
-    if filtered_df.empty:
-        st.info("לא נמצאו תקליטים תחת חיפוש זה.")
+    if filter_type == "אמן":
+        st.multiselect(
+            "סנן לפי אמן",
+            artists,
+            key="artist_select",
+            default=st.session_state["selected_artists"],
+            on_change=on_artist_change
+        )
     else:
-        START_IDX = st.session_state["current_page"] * 50
-        END_IDX = START_IDX + 50
-        page_df = filtered_df.iloc[START_IDX:END_IDX]
+        st.multiselect(
+            "סנן לפי אות",
+            letters,
+            key="letter_select",
+            default=st.session_state["selected_letters"],
+            on_change=on_letter_change
+        )
 
-        # Convert image URLs for ImageColumn rendering
-        import urllib.parse
-        def clean_drive_url(url):
-            if not url or not isinstance(url, str):
-                return None
-            if "drive.google.com" in url:
-                try:
-                    parsed = urllib.parse.urlparse(url)
-                    qs = urllib.parse.parse_qs(parsed.query)
-                    file_id = qs.get("id", [None])[0]
-                    if file_id:
-                        return f"https://lh3.googleusercontent.com/d/{file_id}"
-                except Exception:
-                    pass
-            return url
+    # Reset Button — uses on_click callback to avoid StreamlitAPIException
+    st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
+    st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
 
-        # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
-        display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
-        display_df = page_df[display_cols].copy()
-        display_df.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+    # ── Debug Session Logs ──────────────────────────────────────
+    st.markdown("<hr style='margin: 1rem 0; border-color: var(--color-border);'>", unsafe_allow_html=True)
+    st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:var(--color-text-muted); margin:0 0 0.2rem;'>🔧 דיאגנוסטיקה: Remember Me</p>", unsafe_allow_html=True)
+    st.write({
+        "is_admin": st.session_state.get("is_admin"),
+        "remember_me_checked": st.session_state.get("remember_me_persistent"),
+        "localStorage_action": st.session_state.get("local_storage_action"),
+        "token_retrieved": "Yes (hash matches)" if st.session_state.get("is_admin") else "No / Not loaded yet"
+    })
+
+    # Auto-close drawer JS injection on filter selection (mobile only)
+    if st.session_state.get("should_close_sidebar"):
+        st.session_state["should_close_sidebar"] = False
+        components.html(
+            """
+            <script>
+            const parentDoc = window.parent.document;
+            const sidebar = parentDoc.querySelector('[data-testid="stSidebar"]');
+            const collapseBtn = parentDoc.querySelector('[data-testid="stSidebarCollapseButton"] button');
+            const isMobile = window.parent.innerWidth < 768;
+            if (isMobile && sidebar && sidebar.getAttribute('data-collapsed') !== 'true' && collapseBtn) {
+                collapseBtn.click();
+            }
+            </script>
+            """,
+            height=0,
+            width=0,
+        )
+
+# Global filters applied above sidebar block
+
+
+# ---------------------------------------------------------------------------
+# Album detail popup — triggered by table row clicks
+# ---------------------------------------------------------------------------
+
+@st.dialog("🎧 פרטי האלבום")
+def show_record_detail(record: dict) -> None:
+    """
+    Modular record detail popup.  Called with a full record dict
+    (including image_url / image_synced if available).
+    """
+    import re
+    import urllib.parse
+    import pandas as pd
+
+    try:
+        if not isinstance(record, dict):
+            st.error("לא ניתן להציג פרטים עבור רשומה זו.")
+            return
+
+        def safe_str(val) -> str:
+            if val is None:
+                return ""
+            if isinstance(val, float) and pd.isna(val):
+                return ""
+            return str(val).strip()
+
+        # Clean all input values safely
+        image_raw = record.get("image_url")
+        image_url = safe_str(image_raw)
+        if not image_url:
+            image_url = None
+
+        artist     = safe_str(record.get("artist")) or "לא ידוע"
+        name       = safe_str(record.get("name")) or "לא ידוע"
+        id_letter  = safe_str(record.get("id_letter"))
+        notes      = safe_str(record.get("notes"))
     
-        column_config = {
+        # Handle box safely
+        box_val = record.get("box")
+        if box_val is None or (isinstance(box_val, float) and pd.isna(box_val)):
+            box = "לא ידוע"
+        else:
+            try:
+                box = str(int(float(box_val)))
+            except Exception:
+                box = str(box_val)
+
+        # Convert standard Drive export URL to Google User Content direct image URL for reliable hotlinking
+        if image_url and "drive.google.com" in image_url:
+            try:
+                parsed = urllib.parse.urlparse(image_url)
+                qs = urllib.parse.parse_qs(parsed.query)
+                file_id = qs.get("id", [None])[0]
+                if file_id:
+                    image_url = f"https://lh3.googleusercontent.com/d/{file_id}"
+            except Exception:
+                pass
+
+        # ── Album cover ────────────────────────────────────────────────────────
+        if image_url:
+            try:
+                col_img_left, col_img_center, col_img_right = st.columns([1, 2, 1])
+                with col_img_center:
+                    st.image(image_url, width=180)
+            except Exception:
+                st.info("לא קיימת תמונה לרשומה זו")
+        else:
+            st.info("לא קיימת תמונה לרשומה זו")
+
+        # ── Metadata ───────────────────────────────────────────────────────────
+        location = f"קופסא {box}"
+        if id_letter:
+            location += f" &nbsp;•&nbsp; אות {id_letter}"
+
+        st.markdown(
+            f"""
+            <div style="direction:rtl; text-align:right; padding:0.4rem 0 0;">
+                <h3 style="margin:0.4rem 0 0.1rem; color:#3E4B59;">{name}</h3>
+                <p style="margin:0; color:#8292A1; font-size:0.9rem;"><strong>אמן:</strong> {artist}</p>
+                <p style="margin:0.5rem 0 0; font-size:0.82rem; color:#64748b;">{location}</p>
+                {f'<p style="margin:0.4rem 0 0; font-size:0.85rem;"><strong>הערות:</strong> {notes}</p>' if notes else ''}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
+        if st.button("✕ סגור", use_container_width=True):
+            st.session_state["detail_record"] = None
+            st.rerun()
+
+    except Exception as e:
+        st.error("ארעה שגיאה בהצגת פרטי האלבום.")
+        st.caption(f"שגיאה: {e}")
+        if st.button("✕ סגור", key="detail_err_close", use_container_width=True):
+            st.session_state["detail_record"] = None
+            st.rerun()
+
+
+# ---------------------------------------------------------------------------
+# Add record dialog
+# ---------------------------------------------------------------------------
+@st.dialog("הוספת תקליט חדש")
+def add_record_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
+    with st.form("add_form", clear_on_submit=True):
+        st.markdown("<p style='font-size: 0.85rem; color: #666;'>השדות המסומנים ב-* הינם חובה.</p>", unsafe_allow_html=True)
+        new_artist = st.text_input("שם אומן *")
+        new_name = st.text_input("שם התקליט *")
+        new_notes = st.text_input("הערות נוספות")
+        new_image_url = st.text_input("כתובת תמונת עטיפה (אופציונלי)", placeholder="https://i.discogs.com/...")
+        col_box, col_letter = st.columns(2)
+        with col_box:
+            new_box = st.number_input("קופסא", min_value=1, step=1, value=1)
+        with col_letter:
+            new_id_letter = st.text_input("אות", max_chars=1)
+
+        submitted = st.form_submit_button("הוסף", type="primary", use_container_width=True)
+        if submitted:
+            if not new_artist or not new_name:
+                st.error("אנא מלא את השדות החובה.")
+            else:
+                new_doc_id = record_store.add(db, {
+                    "box": int(new_box),
+                    "id_letter": new_id_letter.strip(),
+                    "artist": new_artist.strip(),
+                    "name": new_name.strip(),
+                    "notes": new_notes.strip(),
+                    "image_url": new_image_url.strip() or None,
+                    "image_synced": False,
+                })
+                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
+                load_data()
+                # --- Audit log operation ---
+                try:
+                    from audit_logger import log_mutation
+                    log_mutation(
+                        action_type="ADD",
+                        record_id=new_doc_id,
+                        artist=new_artist.strip(),
+                        album=new_name.strip(),
+                        notes=f"Added record: Box {new_box}, Notes: {new_notes.strip()}",
+                        firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                    )
+                except Exception as e:
+                    print(f"Audit Log Integration Error (ADD): {e}", flush=True)
+                # --- Auto-sync cover image to Drive ---
+                if new_image_url.strip():
+                    with st.spinner("מוריד תמונת עטיפה..."):
+                        try:
+                            from drive_backup import build_drive_service
+                            from image_sync import sync_single_record
+                            drive_svc = build_drive_service(dict(st.secrets["firebase"]))
+                            covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
+                            if covers_folder_id:
+                                sync_single_record(db, drive_svc, new_doc_id, new_image_url.strip(), covers_folder_id)
+                                st.cache_data.clear()  # Refresh after image URL update
+                                load_data()
+                        except Exception:
+                            pass  # Image sync failure is non-fatal
+                # --- Auto-backup to Google Drive (background task) ---
+                if st.secrets.get("enable_backup", True):
+                    try:
+                        from auto_backup import rotate_and_backup
+                        firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                        threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+                    except Exception as e:
+                        print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
+                else:
+                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
+                st.rerun()
+
+@st.dialog("מחיקת תקליט")
+def delete_record_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
+    if filtered_df.empty:
+         st.warning("אין תקליטים לחיתוך זה.")
+         return
+    delete_options = {
+        f"{row['artist']} — {row['name']}": row["id"]
+        for _, row in filtered_df.iterrows()
+    }
+    selected_delete = st.selectbox("בחר תקליט", list(delete_options.keys()))
+    if st.button("מחק סופית", type="primary", use_container_width=True):
+        selected_id = delete_options[selected_delete]
+        selected_row = filtered_df[filtered_df["id"] == selected_id]
+        if not selected_row.empty:
+            del_artist = selected_row.iloc[0].get("artist", "")
+            del_name = selected_row.iloc[0].get("name", "")
+            del_notes = selected_row.iloc[0].get("notes", "")
+        else:
+            del_artist = ""
+            del_name = ""
+            del_notes = ""
+
+        record_store.delete(db, selected_id)
+        st.cache_data.clear()  # Invalidate cache so next read hits Firestore
+        load_data()
+    
+        # --- Audit log operation ---
+        try:
+            from audit_logger import log_mutation
+            log_mutation(
+                action_type="DELETE",
+                record_id=selected_id,
+                artist=del_artist,
+                album=del_name,
+                notes=f"Deleted record. Previous notes: {del_notes}",
+                firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+            )
+        except Exception as e:
+            print(f"Audit Log Integration Error (DELETE): {e}", flush=True)
+        # --- Auto-backup to Google Drive (background task) ---
+        if st.secrets.get("enable_backup", True):
+            try:
+                from auto_backup import rotate_and_backup
+                firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+            except Exception as e:
+                print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
+        else:
+            print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
+        st.rerun()
+
+@st.dialog("עדכון תקליט")
+def update_record_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
+    if df.empty:
+        st.warning("אין נתונים במסד.")
+        return
+    
+    update_options = {
+        f"{row['artist']} — {row['name']} (קופסא {row['box']})": row
+        for _, row in df.iterrows()
+    }
+
+    selected_key = st.selectbox("חפש ובחר רשומה לעדכון:", list(update_options.keys()))
+    selected_record = update_options[selected_key]
+
+    with st.form("update_form"):
+        st.markdown("<p style='font-size: 0.85rem; color: var(--color-text-muted);'>שנה את השדות הרצויים ולחץ על אישור לשמירה.</p>", unsafe_allow_html=True)
+    
+        updated_artist = st.text_input("אמן *", value=selected_record.get("artist", ""))
+        updated_name = st.text_input("שם התקליט *", value=selected_record.get("name", ""))
+        updated_notes = st.text_input("הערות נוספות", value=selected_record.get("notes", ""))
+        updated_image_url = st.text_input(
+            "כתובת תמונת עטיפה (אופציונלי)",
+            value=selected_record.get("image_url") or "",
+            placeholder="https://i.discogs.com/...",
+        )
+    
+        col_box, col_letter = st.columns(2)
+        with col_box:
+            updated_box = st.number_input("קופסא", min_value=1, step=1, value=int(selected_record.get("box", 1)))
+        with col_letter:
+            updated_letter = st.text_input("אות (אופציונלי)", max_chars=1, value=selected_record.get("id_letter", ""))
+        
+        submitted = st.form_submit_button("אישור", type="primary", use_container_width=True)
+        if submitted:
+            if not updated_artist or not updated_name:
+                st.error("אנא מלא את השדות החובה (אמן, שם התקליט).")
+            else:
+                changes = {
+                    "artist": updated_artist.strip(),
+                    "name": updated_name.strip(),
+                    "notes": updated_notes.strip(),
+                    "box": int(updated_box),
+                }
+                # Only update id_letter if explicitly provided
+                if updated_letter.strip():
+                     changes["id_letter"] = updated_letter.strip()
+                # Update image_url if changed; mark as un-synced so bulk sync will re-process
+                new_raw_url = updated_image_url.strip()
+                old_raw_url = (selected_record.get("image_url") or "").strip()
+                if new_raw_url != old_raw_url:
+                    changes["image_url"] = new_raw_url or None
+                    changes["image_synced"] = False
+                 
+                record_store.update(db, selected_record["id"], changes)
+                st.success("הרשומה עודכנה בהצלחה!")
+                time.sleep(0.8)
+                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
+                load_data()
+                # --- Audit log operation ---
+                try:
+                    changed_fields = []
+                    for k, v in changes.items():
+                        old_val = selected_record.get(k)
+                        if str(old_val).strip() != str(v).strip():
+                            changed_fields.append(f"{k}: '{old_val}' -> '{v}'")
+                    notes_desc = "Updated fields: " + ", ".join(changed_fields) if changed_fields else "No fields changed"
+                
+                    from audit_logger import log_mutation
+                    log_mutation(
+                        action_type="EDIT",
+                        record_id=selected_record["id"],
+                        artist=updated_artist.strip(),
+                        album=updated_name.strip(),
+                        notes=notes_desc,
+                        firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                    )
+                except Exception as e:
+                    print(f"Audit Log Integration Error (EDIT): {e}", flush=True)
+                # --- Auto-sync updated cover image to Drive ---
+                if new_raw_url and new_raw_url != old_raw_url:
+                    with st.spinner("מוריד תמונת עטיפה..."):
+                        try:
+                            from drive_backup import build_drive_service
+                            from image_sync import sync_single_record
+                            drive_svc = build_drive_service(dict(st.secrets["firebase"]))
+                            covers_folder_id = st.secrets.get("gdrive_covers_folder_id", "")
+                            if covers_folder_id:
+                                sync_single_record(db, drive_svc, selected_record["id"], new_raw_url, covers_folder_id)
+                                st.cache_data.clear()
+                                load_data()
+                        except Exception:
+                            pass  # Image sync failure is non-fatal
+                # --- Auto-backup to Google Drive (background task) ---
+                if st.secrets.get("enable_backup", True):
+                    try:
+                        from auto_backup import rotate_and_backup
+                        firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                        threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+                    except Exception as e:
+                        print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
+                else:
+                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
+                st.rerun()
+
+@st.dialog("העלאת קובץ")
+def upload_csv_dialog():
+    if not st.session_state.get("is_admin", False):
+        st.error("גישה נדחתה. עליך להתחבר כמנהל.")
+        return
+    st.info("כלי העלאת CSV כרגע לא פעיל בממשק.")
+
+# ---------------------------------------------------------------------------
+# Invoke dialogs at top level so st.rerun() inside them keeps them alive
+# ---------------------------------------------------------------------------
+if st.session_state.get("dialog_open", False):
+    draw_record_dialog()
+
+if st.session_state.get("detail_record") is not None:
+    show_record_detail(st.session_state["detail_record"])
+    st.session_state["detail_record"] = None
+
+# Main Layout
+# ---------------------------------------------------------------------------
+
+# Update Sidebar explicitly referencing the Current View (Density)
+st.sidebar.markdown(
+    f"""
+    <div class="sidebar-stat-card" style="background:#f8fafc; margin-top: -10px;">
+        <span class="label">שורות בתצוגה (אחרי סינון)</span>
+        <span class="num">{total_filtered_records}</span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+# Row 1: Brand (Title centered, Logo on left)
+with st.container():
+    st.markdown('<div id="brand-row-anchor"></div>', unsafe_allow_html=True)
+    header_html = f"""
+    <div class="brand-row-container">
+        <div class="brand-logo-desktop">
+            <img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;">
+        </div>
+        <div class="brand-row-center">
+            <div class="main-header">
+                <h1>אוסף התקליטים של ירון</h1>
+            </div>
+        </div>
+        <div class="brand-spacer"></div>
+    </div>
+    """
+    st.markdown(header_html, unsafe_allow_html=True)
+
+
+
+# Row 3: Action Toolbar — admin-only
+if st.session_state.get("is_admin", False):
+    with st.container():
+        st.markdown('<div id="action-buttons-anchor"></div>', unsafe_allow_html=True)
+        if st.button("הוסף רשומה"):
+            add_record_dialog()
+        if st.button("מחק רשומה"):
+            delete_record_dialog()
+        if st.button("עדכון רשומה"):
+            update_record_dialog()
+        if st.button("העלאת קובץ"):
+            upload_csv_dialog()
+
+        csv_data = df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="⬇️",
+            data=csv_data,
+            file_name="records_backup.csv",
+            mime="text/csv"
+        )
+
+# Row 4: Data Info & Checkbox (Table Controls Line)
+with st.container():
+    st.markdown('<div id="table-controls-anchor"></div>', unsafe_allow_html=True)
+    st.markdown(f'<p style="font-size:0.8rem; color: #64748b;font-weight:600; margin:0;">מציג נתונים — עמוד {st.session_state["current_page"] + 1}</p>', unsafe_allow_html=True)
+    show_box = st.checkbox("הצג עמודת קופסא", value=False)
+
+# Display Sub-Count neatly above table
+# Redundant line removed to avoid duplication with Row 4
+
+# ---------------------------------------------------------------------------
+# Minimalist Table Interface (index hidden)
+# ---------------------------------------------------------------------------
+
+if filtered_df.empty:
+    st.info("לא נמצאו תקליטים תחת חיפוש זה.")
+else:
+    START_IDX = st.session_state["current_page"] * 50
+    END_IDX = START_IDX + 50
+    page_df = filtered_df.iloc[START_IDX:END_IDX]
+
+    # Convert image URLs for ImageColumn rendering
+    import urllib.parse
+    def clean_drive_url(url):
+        if not url or not isinstance(url, str):
+            return None
+        if "drive.google.com" in url:
+            try:
+                parsed = urllib.parse.urlparse(url)
+                qs = urllib.parse.parse_qs(parsed.query)
+                file_id = qs.get("id", [None])[0]
+                if file_id:
+                    return f"https://lh3.googleusercontent.com/d/{file_id}"
+            except Exception:
+                pass
+        return url
+
+    # Explicit column ordering (Notes leftmost, Box rightmost structurally because Canvas Grid ignores RTL flips!)
+    display_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
+    display_df = page_df[display_cols].copy()
+    display_df.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+
+    column_config = {
+        "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
+        "notes": st.column_config.TextColumn("הערות"),
+        "name": st.column_config.TextColumn("שם התקליט"),
+        "artist": st.column_config.TextColumn("אמן"),
+        "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
+    }
+
+    if st.session_state.get("is_admin", False):
+        # Admin: editable table with save + row-click detail popup workaround
+        editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
+    
+        # Data Isolation: Create a clean copy of the paginated dataframe for editing
+        admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
+        df_for_editing = page_df[admin_cols].copy()
+        df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
+        df_for_editing.insert(0, "צפה", False)
+    
+        # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
+        df_for_editing = df_for_editing.reset_index(drop=True)
+    
+        # Cleanup: Force plain Python types on the editing dataframe
+        df_for_editing["notes"] = df_for_editing["notes"].fillna("").astype(str)
+        df_for_editing["name"] = df_for_editing["name"].fillna("").astype(str)
+        df_for_editing["artist"] = df_for_editing["artist"].fillna("").astype(str)
+        if "box" in df_for_editing.columns:
+            df_for_editing["box"] = df_for_editing["box"].fillna(1).astype(int)
+        
+        # Column Configuration: Explicitly define types to prevent guessing and serializer issues
+        admin_config = {
+            "צפה": st.column_config.CheckboxColumn("צפה", default=False, width="small", help="הצג פרטים ועטיפה"),
             "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
             "notes": st.column_config.TextColumn("הערות"),
             "name": st.column_config.TextColumn("שם התקליט"),
             "artist": st.column_config.TextColumn("אמן"),
-            "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1),
+            "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1) if show_box else None,
         }
+        # Remove None configs
+        admin_config = {k: v for k, v in admin_config.items() if v is not None}
 
-        if st.session_state.get("is_admin", False):
-            # Admin: editable table with save + row-click detail popup workaround
-            editor_key = f"editor_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
-        
-            # Data Isolation: Create a clean copy of the paginated dataframe for editing
-            admin_cols = ["notes", "name", "artist", "box"] if show_box else ["notes", "name", "artist"]
-            df_for_editing = page_df[admin_cols].copy()
-            df_for_editing.insert(0, "עטיפה", page_df["image_url"].apply(clean_drive_url))
-            df_for_editing.insert(0, "צפה", False)
-        
-            # Reset index to contiguous integers. This prevents the Streamlit TypeError caused by serializing non-contiguous pandas indices.
-            df_for_editing = df_for_editing.reset_index(drop=True)
-        
-            # Cleanup: Force plain Python types on the editing dataframe
-            df_for_editing["notes"] = df_for_editing["notes"].fillna("").astype(str)
-            df_for_editing["name"] = df_for_editing["name"].fillna("").astype(str)
-            df_for_editing["artist"] = df_for_editing["artist"].fillna("").astype(str)
-            if "box" in df_for_editing.columns:
-                df_for_editing["box"] = df_for_editing["box"].fillna(1).astype(int)
-            
-            # Column Configuration: Explicitly define types to prevent guessing and serializer issues
-            admin_config = {
-                "צפה": st.column_config.CheckboxColumn("צפה", default=False, width="small", help="הצג פרטים ועטיפה"),
-                "עטיפה": st.column_config.ImageColumn("עטיפה", width="small", help="עטיפת האלבום"),
-                "notes": st.column_config.TextColumn("הערות"),
-                "name": st.column_config.TextColumn("שם התקליט"),
-                "artist": st.column_config.TextColumn("אמן"),
-                "box": st.column_config.NumberColumn("קופסא", min_value=1, step=1) if show_box else None,
-            }
-            # Remove None configs
-            admin_config = {k: v for k, v in admin_config.items() if v is not None}
+        edited_df = st.data_editor(
+            df_for_editing,
+            column_config=admin_config,
+            use_container_width=True,
+            hide_index=True,
+            num_rows="fixed",
+            height=320,
+            disabled=["עטיפה"],
+            key=editor_key,
+        )
 
-            edited_df = st.data_editor(
-                df_for_editing,
-                column_config=admin_config,
-                use_container_width=True,
-                hide_index=True,
-                num_rows="fixed",
-                height=320,
-                disabled=["עטיפה"],
-                key=editor_key,
-            )
-
-            # Check if any row's "צפה" checkbox was checked to trigger the details dialog workaround
-            _editor_state = st.session_state.get(editor_key, {})
-            _edited_rows = _editor_state.get("edited_rows", {})
-            if _edited_rows:
-                for row_idx_str, row_changes in list(_edited_rows.items()):
-                    if row_changes.get("צפה") is True:
-                        row_idx = int(row_idx_str)
-                        _rec = page_df.iloc[row_idx].to_dict()
-                        st.session_state["detail_record"] = _rec
-                        st.session_state["selection_counter"] += 1
-                        st.rerun()
-
-            if not df_for_editing.equals(edited_df):
-                if st.button("שמור שינויים", type="primary"):
-                    if not st.session_state.get("is_admin", False):
-                        st.error("פעולה זו מורשית למנהלים בלבד.")
-                        st.rerun()
-                    for idx in edited_df.index:
-                        original_row = df_for_editing.loc[idx]
-                        edited_row = edited_df.loc[idx]
-                        if not original_row.equals(edited_row):
-                            # Map contiguous index back to Firestore document using page_df.iloc
-                            doc_id = page_df.iloc[idx]["id"]
-                            changes = edited_row.to_dict()
-                            if "עטיפה" in changes:
-                                del changes["עטיפה"]
-                            if "צפה" in changes:
-                                del changes["צפה"]
-                            if "box" in changes:
-                                changes["box"] = int(changes["box"])
-                            record_store.update(db, doc_id, changes)
-                        
-                            # --- Audit log operation ---
-                            try:
-                                changed_fields = []
-                                for k, v in changes.items():
-                                    old_val = original_row.get(k)
-                                    if str(old_val).strip() != str(v).strip():
-                                        changed_fields.append(f"{k}: '{old_val}' -> '{v}'")
-                                notes_desc = "Inline edit: " + ", ".join(changed_fields) if changed_fields else "Inline edit (no fields changed)"
-                            
-                                from audit_logger import log_mutation
-                                log_mutation(
-                                    action_type="EDIT",
-                                    record_id=doc_id,
-                                    artist=changes.get("artist", original_row.get("artist", "")),
-                                    album=changes.get("name", original_row.get("name", "")),
-                                    notes=notes_desc,
-                                    firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                                )
-                            except Exception as e:
-                                print(f"Audit Log Integration Error (INLINE EDIT): {e}", flush=True)
-                    st.cache_data.clear()  # Invalidate cache so next read hits Firestore
-                    load_data()
-                    # --- Auto-backup to Google Drive (background task) ---
-                    if st.secrets.get("enable_backup", True):
-                        try:
-                            from auto_backup import rotate_and_backup
-                            firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
-                            threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
-                        except Exception as e:
-                            print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
-                    else:
-                        print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
+        # Check if any row's "צפה" checkbox was checked to trigger the details dialog workaround
+        _editor_state = st.session_state.get(editor_key, {})
+        _edited_rows = _editor_state.get("edited_rows", {})
+        if _edited_rows:
+            for row_idx_str, row_changes in list(_edited_rows.items()):
+                if row_changes.get("צפה") is True:
+                    row_idx = int(row_idx_str)
+                    _rec = page_df.iloc[row_idx].to_dict()
+                    st.session_state["detail_record"] = _rec
+                    st.session_state["selection_counter"] += 1
                     st.rerun()
-        else:
-            # Public: read-only table with row-click detail popup
-            df_key = f"df_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
-            event = st.dataframe(
-                display_df,
-                column_config=column_config,
-                use_container_width=True,
-                hide_index=True,
-                height=320,
-                key=df_key,
-                on_select="rerun",
-                selection_mode="single-row",
-            )
-            _pub_rows = event.selection.rows
-            if _pub_rows:
-                _rec = page_df.iloc[_pub_rows[0]].to_dict()
-                st.session_state["detail_record"] = _rec
-                st.session_state["selection_counter"] += 1
+
+        if not df_for_editing.equals(edited_df):
+            if st.button("שמור שינויים", type="primary"):
+                if not st.session_state.get("is_admin", False):
+                    st.error("פעולה זו מורשית למנהלים בלבד.")
+                    st.rerun()
+                for idx in edited_df.index:
+                    original_row = df_for_editing.loc[idx]
+                    edited_row = edited_df.loc[idx]
+                    if not original_row.equals(edited_row):
+                        # Map contiguous index back to Firestore document using page_df.iloc
+                        doc_id = page_df.iloc[idx]["id"]
+                        changes = edited_row.to_dict()
+                        if "עטיפה" in changes:
+                            del changes["עטיפה"]
+                        if "צפה" in changes:
+                            del changes["צפה"]
+                        if "box" in changes:
+                            changes["box"] = int(changes["box"])
+                        record_store.update(db, doc_id, changes)
+                    
+                        # --- Audit log operation ---
+                        try:
+                            changed_fields = []
+                            for k, v in changes.items():
+                                old_val = original_row.get(k)
+                                if str(old_val).strip() != str(v).strip():
+                                    changed_fields.append(f"{k}: '{old_val}' -> '{v}'")
+                            notes_desc = "Inline edit: " + ", ".join(changed_fields) if changed_fields else "Inline edit (no fields changed)"
+                        
+                            from audit_logger import log_mutation
+                            log_mutation(
+                                action_type="EDIT",
+                                record_id=doc_id,
+                                artist=changes.get("artist", original_row.get("artist", "")),
+                                album=changes.get("name", original_row.get("name", "")),
+                                notes=notes_desc,
+                                firebase_secrets=dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                            )
+                        except Exception as e:
+                            print(f"Audit Log Integration Error (INLINE EDIT): {e}", flush=True)
+                st.cache_data.clear()  # Invalidate cache so next read hits Firestore
+                load_data()
+                # --- Auto-backup to Google Drive (background task) ---
+                if st.secrets.get("enable_backup", True):
+                    try:
+                        from auto_backup import rotate_and_backup
+                        firebase_secrets = dict(st.secrets["firebase"]) if "firebase" in st.secrets else None
+                        threading.Thread(target=rotate_and_backup, args=(firebase_secrets,), daemon=True).start()
+                    except Exception as e:
+                        print(f"Auto-Backup: Thread spawn failed: {e}", flush=True)
+                else:
+                    print("Auto-Backup: Skipped background backup because enable_backup is set to False in secrets.", flush=True)
                 st.rerun()
+    else:
+        # Public: read-only table with row-click detail popup
+        df_key = f"df_{st.session_state['current_page']}_{hash(st.session_state['search_input'])}_sel_{st.session_state['selection_counter']}"
+        event = st.dataframe(
+            display_df,
+            column_config=column_config,
+            use_container_width=True,
+            hide_index=True,
+            height=320,
+            key=df_key,
+            on_select="rerun",
+            selection_mode="single-row",
+        )
+        _pub_rows = event.selection.rows
+        if _pub_rows:
+            _rec = page_df.iloc[_pub_rows[0]].to_dict()
+            st.session_state["detail_record"] = _rec
+            st.session_state["selection_counter"] += 1
+            st.rerun()
 
-    # Footer Paginators tightly grouped
-    paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
-    with paginator_col_next:
-        if st.session_state["current_page"] > 0:
-            if st.button("הקודם ←"):
-                 st.session_state["current_page"] -= 1
-                 st.rerun()
-             
-    with paginator_col_prev:
-        if st.session_state["current_page"] < MAX_PAGE:
-            if st.button("→ הבא"):
-                 st.session_state["current_page"] += 1
-                 st.rerun()
+# Footer Paginators tightly grouped
+paginator_col_next, paginator_col_pos, paginator_col_prev = st.columns([1, 4, 1])
+with paginator_col_next:
+    if st.session_state["current_page"] > 0:
+        if st.button("הקודם ←"):
+             st.session_state["current_page"] -= 1
+             st.rerun()
+         
+with paginator_col_prev:
+    if st.session_state["current_page"] < MAX_PAGE:
+        if st.button("→ הבא"):
+             st.session_state["current_page"] += 1
+             st.rerun()
 
-    # Unconditional JS script injection at the end of the page to handle RTL dataframe scrolling on mobile
-    components.html(
-        """
-        <script>
-        const parentDoc = window.parent.document;
-        const isMobile = window.parent.innerWidth < 768;
-        if (isMobile) {
-            const scrollDFs = () => {
-                const dfs = parentDoc.querySelectorAll('div[data-testid="stDataFrame"]');
-                dfs.forEach(df => {
-                    if (!df.dataset.rtlScrolled) {
-                        let scrolled = false;
-                        df.querySelectorAll('div').forEach(d => {
-                            if (d.scrollWidth > d.clientWidth) {
-                                d.scrollLeft = d.scrollWidth;
-                                scrolled = true;
-                            }
-                        });
-                        if (scrolled) {
-                            df.dataset.rtlScrolled = 'true';
+# Unconditional JS script injection at the end of the page to handle RTL dataframe scrolling on mobile
+components.html(
+    """
+    <script>
+    const parentDoc = window.parent.document;
+    const isMobile = window.parent.innerWidth < 768;
+    if (isMobile) {
+        const scrollDFs = () => {
+            const dfs = parentDoc.querySelectorAll('div[data-testid="stDataFrame"]');
+            dfs.forEach(df => {
+                if (!df.dataset.rtlScrolled) {
+                    let scrolled = false;
+                    df.querySelectorAll('div').forEach(d => {
+                        if (d.scrollWidth > d.clientWidth) {
+                            d.scrollLeft = d.scrollWidth;
+                            scrolled = true;
                         }
+                    });
+                    if (scrolled) {
+                        df.dataset.rtlScrolled = 'true';
                     }
-                });
-            };
-            // Run immediately and retry to handle rendering delay
-            scrollDFs();
-            setTimeout(scrollDFs, 100);
-            setTimeout(scrollDFs, 300);
-            setTimeout(scrollDFs, 500);
-            setTimeout(scrollDFs, 800);
-        }
-        </script>
-        """,
-        height=0,
-        width=0,
-    )
+                }
+            });
+        };
+        // Run immediately and retry to handle rendering delay
+        scrollDFs();
+        setTimeout(scrollDFs, 100);
+        setTimeout(scrollDFs, 300);
+        setTimeout(scrollDFs, 500);
+        setTimeout(scrollDFs, 800);
+    }
+    </script>
+    """,
+    height=0,
+    width=0,
+)
