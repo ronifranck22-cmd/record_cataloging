@@ -575,9 +575,10 @@ if "should_close_sidebar" not in st.session_state:
     st.session_state["should_close_sidebar"] = False
 
 # ── URL-based session auth ──────────────────────────────────────────────────
-# To revert: delete auth.py and remove the two lines below.
-from auth import validate_session as _auth_validate, login_success as _auth_login, logout as _auth_logout
-_auth_validate()
+# To revert: delete auth.py and remove the 4 lines below.
+from auth import validate_session as _auth_validate, login_success as _auth_login, logout as _auth_logout, flush_pending as _auth_flush
+_auth_validate()   # reads URL params → sets is_admin if token valid
+_auth_flush()      # writes any pending token/clear to the URL (main body, not callback)
 
 
 # ---------------------------------------------------------------------------
