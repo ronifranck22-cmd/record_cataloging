@@ -95,8 +95,8 @@ st.markdown(
     div[data-testid="element-container"]:has(iframe[title*="local_storage"]),
     div.element-container:has(iframe[title*="st.html"]),
     div[data-testid="element-container"]:has(iframe[title*="st.html"]) {
-        height: 0px !important;
-        min-height: 0px !important;
+        height: 1px !important;
+        min-height: 1px !important;
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
@@ -105,8 +105,8 @@ st.markdown(
         pointer-events: none !important;
     }
     iframe[title*="local_storage"], iframe[title*="st.html"] {
-        height: 0px !important;
-        width: 0px !important;
+        height: 1px !important;
+        width: 1px !important;
         border: none !important;
         margin: 0 !important;
         padding: 0 !important;
