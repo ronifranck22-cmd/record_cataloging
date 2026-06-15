@@ -623,6 +623,7 @@ res = _local_storage(
     value=st.session_state["local_storage_val"],
     key="ls_iframe"
 )
+print(f"DEBUG: auth_loading={st.session_state.get('auth_loading')}, action={st.session_state.get('local_storage_action')}, res={res}", flush=True)
 
 # Wrapper helpers that update state so components can trigger them from anywhere (callbacks/buttons)
 def set_local_storage(key, value):
