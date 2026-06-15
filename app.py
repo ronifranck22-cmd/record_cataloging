@@ -113,7 +113,6 @@ st.markdown(
         position: absolute !important;
         opacity: 0 !important;
         pointer-events: none !important;
-        display: block !important;
     }
 
     /* Mobile Drawer/Overlay Sidebar Behavior */

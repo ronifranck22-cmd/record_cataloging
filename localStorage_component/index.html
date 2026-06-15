@@ -17,8 +17,16 @@
             }, "*");
         }
 
+        let readySentInterval = setInterval(function() {
+            window.parent.postMessage({
+                type: "streamlit:componentReady",
+                apiVersion: 1
+            }, "*");
+        }, 250);
+
         window.addEventListener("message", function(event) {
             if (event.data.type === "streamlit:render") {
+                clearInterval(readySentInterval);
                 setHeight();
                 
                 const args = event.data.args;
