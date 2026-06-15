@@ -599,6 +599,8 @@ if "selected_letters" not in st.session_state:
     st.session_state["selected_letters"] = []
 if "should_close_sidebar" not in st.session_state:
     st.session_state["should_close_sidebar"] = False
+if "remember_me_persistent" not in st.session_state:
+    st.session_state["remember_me_persistent"] = False
 
 # --- Custom LocalStorage Component for 'Remember Session' ---
 import os
@@ -643,6 +645,7 @@ if res and isinstance(res, dict) and res.get("status") == "success":
                 if res_val == correct_hash:
                     if not st.session_state.get("is_admin", False):
                         st.session_state["is_admin"] = True
+                        st.session_state["remember_me_persistent"] = True
                         st.rerun()
     elif res_action == "set":
         # Reset queue back to 'get' state
@@ -660,7 +663,7 @@ if st.session_state.get("is_admin"):
     correct_password = st.secrets.get("app_password", "")
     if correct_password:
         correct_hash = hashlib.sha256(correct_password.encode()).hexdigest()
-        if st.session_state.get("remember_admin_session"):
+        if st.session_state.get("remember_me_persistent"):
             if st.session_state.get("local_storage_action") != "set" and res_val != correct_hash:
                 set_local_storage("admin_token", correct_hash)
                 st.rerun()
@@ -732,12 +735,17 @@ def on_letter_change():
     st.session_state["selected_letters"] = st.session_state.get("letter_select", [])
     st.session_state["should_close_sidebar"] = True
 
+def on_remember_me_change():
+    st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
+
 def set_admin():
     """Callback: validate admin password and set is_admin flag."""
     entered = st.session_state.get("admin_input", "")
     correct = st.secrets.get("app_password", "")
     is_correct = (entered == correct) and bool(correct)
     st.session_state["is_admin"] = is_correct
+    if is_correct:
+        st.session_state["remember_me_persistent"] = st.session_state.get("remember_admin_session", False)
 
 if "df" not in st.session_state or "current_page" not in st.session_state:
     load_data()
@@ -961,12 +969,15 @@ with st.sidebar:
             placeholder="סיסמת מנהל...",
             label_visibility="collapsed",
         )
-        st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session")
+        st.checkbox("זכור אותי במכשיר זה", key="remember_admin_session", on_change=on_remember_me_change)
     else:
         st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0 0 0.5rem;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
         if st.button("התנתק כמנהל", key="logout_btn", use_container_width=True):
             st.session_state["is_admin"] = False
             st.session_state["admin_input"] = ""
+            st.session_state["remember_me_persistent"] = False
+            if "remember_admin_session" in st.session_state:
+                st.session_state["remember_admin_session"] = False
             clear_local_storage("admin_token")
             st.rerun()
 
@@ -1051,7 +1062,7 @@ with st.sidebar:
     st.markdown("<p style='font-size:0.75rem; font-weight:bold; color:var(--color-text-muted); margin:0 0 0.2rem;'>🔧 דיאגנוסטיקה: Remember Me</p>", unsafe_allow_html=True)
     st.write({
         "is_admin": st.session_state.get("is_admin"),
-        "remember_me_checked": st.session_state.get("remember_admin_session"),
+        "remember_me_checked": st.session_state.get("remember_me_persistent"),
         "localStorage_action": st.session_state.get("local_storage_action"),
         "token_retrieved": "Yes (hash matches)" if st.session_state.get("is_admin") else "No / Not loaded yet"
     })
