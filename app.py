@@ -832,13 +832,13 @@ def draw_record_dialog():
 
     col_spin, col_close = st.columns(2)
     with col_spin:
-        if st.button("סובב שוב", use_container_width=True):
+        if st.button("סובב שוב", width="stretch"):
             st.session_state["drawn_record"] = df.sample(1).iloc[0].to_dict()
             st.session_state["spin_key"] = spin_key + 1
             st.session_state["drawn_at"] = time.time()
             st.rerun()  # safe: dialog_open=True keeps dialog alive on rerun
     with col_close:
-        if st.button("✕ סגור", use_container_width=True):
+        if st.button("✕ סגור", width="stretch"):
             st.session_state["drawn_record"] = None
             st.session_state["dialog_open"] = False
             st.rerun()
@@ -884,7 +884,7 @@ with st.sidebar:
         )
     else:
         st.markdown("<p style='color:#22c55e; font-size:0.78rem; text-align:right; margin:0 0 0.5rem;'>✓ מצב מנהל פעיל</p>", unsafe_allow_html=True)
-        st.button("התנתק כמנהל", key="logout_btn", use_container_width=True, on_click=logout_admin)
+        st.button("התנתק כמנהל", key="logout_btn", width="stretch", on_click=logout_admin)
 
     st.markdown("<hr style='margin: 0.5rem 0 1rem; border-color: var(--color-border);'>", unsafe_allow_html=True)
 
@@ -912,7 +912,7 @@ with st.sidebar:
 
     # --- Draw Record Button (Lucky Draw) ---
     st.markdown('<div style="margin: 0.5rem 0;">', unsafe_allow_html=True)
-    if st.button(" הגרל תקליט", use_container_width=True):
+    if st.button(" הגרל תקליט", width="stretch"):
         st.session_state["drawn_record"] = None
         st.session_state["spin_key"] = 0
         st.session_state["drawn_at"] = 0.0
@@ -960,7 +960,7 @@ with st.sidebar:
 
     # Reset Button — uses on_click callback to avoid StreamlitAPIException
     st.markdown('<div id="reset-filters-anchor"></div>', unsafe_allow_html=True)
-    st.button("אפס סינונים ורענן", use_container_width=True, on_click=reset_all_filters)
+    st.button("אפס סינונים ורענן", width="stretch", on_click=reset_all_filters)
 
 
 
@@ -1073,14 +1073,14 @@ def show_record_detail(record: dict) -> None:
         )
 
         st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
-        if st.button("✕ סגור", use_container_width=True):
+        if st.button("✕ סגור", width="stretch"):
             st.session_state["detail_record"] = None
             st.rerun()
 
     except Exception as e:
         st.error("ארעה שגיאה בהצגת פרטי האלבום.")
         st.caption(f"שגיאה: {e}")
-        if st.button("✕ סגור", key="detail_err_close", use_container_width=True):
+        if st.button("✕ סגור", key="detail_err_close", width="stretch"):
             st.session_state["detail_record"] = None
             st.rerun()
 
@@ -1105,7 +1105,7 @@ def add_record_dialog():
         with col_letter:
             new_id_letter = st.text_input("אות", max_chars=1)
 
-        submitted = st.form_submit_button("הוסף", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("הוסף", type="primary", width="stretch")
         if submitted:
             if not new_artist or not new_name:
                 st.error("אנא מלא את השדות החובה.")
@@ -1173,7 +1173,7 @@ def delete_record_dialog():
         for _, row in filtered_df.iterrows()
     }
     selected_delete = st.selectbox("בחר תקליט", list(delete_options.keys()))
-    if st.button("מחק סופית", type="primary", use_container_width=True):
+    if st.button("מחק סופית", type="primary", width="stretch"):
         selected_id = delete_options[selected_delete]
         selected_row = filtered_df[filtered_df["id"] == selected_id]
         if not selected_row.empty:
@@ -1249,7 +1249,7 @@ def update_record_dialog():
         with col_letter:
             updated_letter = st.text_input("אות (אופציונלי)", max_chars=1, value=selected_record.get("id_letter", ""))
         
-        submitted = st.form_submit_button("אישור", type="primary", use_container_width=True)
+        submitted = st.form_submit_button("אישור", type="primary", width="stretch")
         if submitted:
             if not updated_artist or not updated_name:
                 st.error("אנא מלא את השדות החובה (אמן, שם התקליט).")
@@ -1477,7 +1477,7 @@ else:
         edited_df = st.data_editor(
             df_for_editing,
             column_config=admin_config,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             num_rows="fixed",
             height=320,
@@ -1556,7 +1556,7 @@ else:
         event = st.dataframe(
             display_df,
             column_config=column_config,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             height=320,
             key=df_key,
