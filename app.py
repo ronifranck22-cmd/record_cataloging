@@ -17,6 +17,15 @@ import threading
 from google.api_core.exceptions import ResourceExhausted
 
 # ---------------------------------------------------------------------------
+# Page config — MUST be the very first Streamlit command
+# ---------------------------------------------------------------------------
+st.set_page_config(
+    page_title="אוסף התקליטים של ירון",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
+# ---------------------------------------------------------------------------
 # Logo Processing (Base64 for inline embedding)
 # ---------------------------------------------------------------------------
 @st.cache_data
@@ -34,15 +43,6 @@ BG_BASE64 = get_base64_of_bin_file('background_pattern.png')
 # Header Logos (Responsive)
 LOGO_HTML_DESKTOP_BRAND = f'<div class="brand-logo-desktop"><img src="data:image/png;base64,{LOGO_BASE64}" style="width: 180px;"></div>' if LOGO_BASE64 else ""
 LOGO_HTML_MOBILE_INLINE = f'<img class="mobile-logo-inline" src="data:image/png;base64,{LOGO_BASE64}" style="height: 35px; margin-left: 10px; vertical-align: middle;">' if LOGO_BASE64 else ""
-
-# ---------------------------------------------------------------------------
-# Page config
-# ---------------------------------------------------------------------------
-st.set_page_config(
-    page_title="אוסף התקליטים של ירון",
-    layout="wide",
-    initial_sidebar_state="expanded", # Ensure sidebar is visibly open by default
-)
 
 # Dense AirBnB UX, Centered Buttons, Clean Header
 import streamlit.components.v1 as components
